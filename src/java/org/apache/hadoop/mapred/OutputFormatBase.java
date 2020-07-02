@@ -29,10 +29,13 @@ public abstract class OutputFormatBase implements OutputFormat {
 
   public void checkOutputSpecs(FileSystem fs, JobConf job) throws IOException {
     // Ensure that the output directory is set and not already there
+    // job的输出文件夹
     File outDir = job.getOutputDir();
+    // 未设置输出文件夹
     if (outDir == null && job.getNumReduceTasks() != 0) {
       throw new IOException("Output directory not set in JobConf.");
     }
+    // 存在输出文件夹，报错
     if (outDir != null && fs.exists(outDir)) {
       throw new IOException("Output directory " + outDir + 
                             " already exists.");

@@ -110,18 +110,21 @@ public class SequenceFile {
                       Class keyClass, Class valClass,
                       boolean compress) throws IOException {
       this.out = out;
+      // 先写 VERSION
       this.out.write(VERSION);
 
       this.keyClass = keyClass;
       this.valClass = valClass;
 
+      // 是否压缩
       this.deflateValues = compress;
-
+      // key 写出去
       new UTF8(WritableName.getName(keyClass)).write(this.out);
+      // value 写出去
       new UTF8(WritableName.getName(valClass)).write(this.out);
-
+      // 是否压缩
       this.out.writeBoolean(deflateValues);
-
+      // 写一个sync
       out.write(sync);                            // write the sync bytes
 
       this.out.flush();                           // flush header

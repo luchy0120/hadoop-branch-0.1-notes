@@ -20,6 +20,7 @@ import java.io.IOException;
 
 import org.apache.hadoop.fs.FileSystem;
 
+
 /** An input data format.  Input files are stored in a {@link FileSystem}.
  * The processing of an input file may be split across multiple machines.
  * Files are processed as sequences of records, implementing {@link
@@ -33,6 +34,7 @@ public interface InputFormat {
    * @param numSplits the desired number of splits
    * @return the splits
    */
+  // 一个split就是一个map的task
   FileSplit[] getSplits(FileSystem fs, JobConf job, int numSplits)
     throws IOException;
 

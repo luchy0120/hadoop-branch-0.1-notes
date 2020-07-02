@@ -58,6 +58,7 @@ public class JobClient implements MRConstants {
         public NetworkedJob(JobStatus job) throws IOException {
             this.status = job;
             this.profile = jobSubmitClient.getJobProfile(job.getJobId());
+            // 状态时间
             this.statustime = System.currentTimeMillis();
         }
 
@@ -236,14 +237,19 @@ public class JobClient implements MRConstants {
         //
 
         // Create a number of filenames in the JobTracker's fs namespace
-        File submitJobDir = new File(job.getSystemDir(), "submit_" + Integer.toString(Math.abs(r.nextInt()), 36));
-        File submitJobFile = new File(submitJobDir, "job.xml");
-        File submitJarFile = new File(submitJobDir, "job.jar");
 
+        // submit_数字，提交的目录
+        File submitJobDir = new File(job.getSystemDir(), "submit_" + Integer.toString(Math.abs(r.nextInt()), 36));
+        // job描述
+        File submitJobFile = new File(submitJobDir, "job.xml");
+        // job的jar包
+        File submitJarFile = new File(submitJobDir, "job.jar");
+        // job配置的jar包位置
         String originalJarPath = job.getJar();
 
         if (originalJarPath != null) {           // Copy jar to JobTracker's fs
           job.setJar(submitJarFile.toString());
+          // 从本地copy到dfs上
           getFs().copyFromLocalFile(new File(originalJarPath), submitJarFile);
         }
 
@@ -251,15 +257,19 @@ public class JobClient implements MRConstants {
 
         // Set the user's name and working directory
         String user = System.getProperty("user.name");
+        // 设置job的user
         job.setUser(user != null ? user : "Dr Who");
         if (job.getWorkingDirectory() == null) {
+            // 将dfs的working dir 设置给job
           job.setWorkingDirectory(fileSys.getWorkingDirectory().toString());          
         }
 
         // Check the output specification
+        // 检查输出文件夹
         job.getOutputFormat().checkOutputSpecs(fs, job);
 
-        // Write job file to JobTracker's fs        
+        // Write job file to JobTracker's fs
+        // 把job的conf写到xml里
         FSDataOutputStream out = fileSys.create(submitJobFile);
         try {
           job.write(out);
@@ -303,17 +313,23 @@ public class JobClient implements MRConstants {
       RunningJob running = null;
       String lastReport = null;
       try {
+          // 提交job的配置
         running = jc.submitJob(job);
+        // 获得job的id
         String jobId = running.getJobID();
         LOG.info("Running job: " + jobId);
+        // 尚未结束，每隔1秒钟获取job的状态
         while (!running.isComplete()) {
           try {
             Thread.sleep(1000);
           } catch (InterruptedException e) {}
           running = jc.getJob(jobId);
           String report = null;
+          // map 跑了多少， reduce跑了多少
           report = " map "+Math.round(running.mapProgress()*100)+"%  reduce " + Math.round(running.reduceProgress()*100)+"%";
+          // 与上一条日志内容不同
           if (!report.equals(lastReport)) {
+              // 记录下来
             LOG.info(report);
             lastReport = report;
           }
@@ -321,9 +337,11 @@ public class JobClient implements MRConstants {
         if (!running.isSuccessful()) {
           throw new IOException("Job failed!");
         }
+        // 完成了job
         LOG.info("Job complete: " + jobId);
         error = false;
       } finally {
+          // 有问题，就杀掉那个job
         if (error && (running != null)) {
           running.killJob();
         }
@@ -334,10 +352,12 @@ public class JobClient implements MRConstants {
     static Configuration getConfiguration(String jobTrackerSpec)
     {
       Configuration conf = new Configuration();
-      if(jobTrackerSpec != null) {        
+      if(jobTrackerSpec != null) {
+          // 有冒号
         if(jobTrackerSpec.indexOf(":") >= 0) {
           conf.set("mapred.job.tracker", jobTrackerSpec);
         } else {
+            // hadoop xml配置文件
           String classpathFile = "hadoop-" + jobTrackerSpec + ".xml";
           URL validate = conf.getResource(classpathFile);
           if(validate == null) {

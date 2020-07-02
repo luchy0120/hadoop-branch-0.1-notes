@@ -84,16 +84,23 @@ class LocalJobRunner implements JobSubmissionProtocol {
       try {
         // split input into minimum number of splits
         FileSplit[] splits;
+        // 使用conf里配置设置fs的working directory
         setWorkingDirectory(job, fs);
+        // 从fs上的input文件夹里获得所有文件，并按照splitbytes 切分
         splits = job.getInputFormat().getSplits(fs, job, 1);
 
         
         // run a map task for each split
+        // 单个reduce 任务
         job.setNumReduceTasks(1);                 // force a single reduce task
         for (int i = 0; i < splits.length; i++) {
+          // 添加mapid
           mapIds.add("map_" + newId());
+          // 传入文件，以及分片，以及id
           MapTask map = new MapTask(file, (String)mapIds.get(i), splits[i]);
+          // 设置map任务的配置
           map.setConf(job);
+          // map任务数量加1
           map_tasks += 1;
           map.run(job, this);
           map_tasks -= 1;
@@ -101,9 +108,15 @@ class LocalJobRunner implements JobSubmissionProtocol {
 
         // move map output to reduce input
         String reduceId = "reduce_" + newId();
+        // 把所有的mapId对应的结果放到一个reduceid指定的目录当中
         for (int i = 0; i < mapIds.size(); i++) {
+          // map的id
           String mapId = (String)mapIds.get(i);
+          // map的输出文件
+          // mapred.local.dir/1321434/part-0.out
           File mapOut = this.mapoutputFile.getOutputFile(mapId, 0);
+          // reduce的输入文件
+          // reduce_312343/1321434.out
           File reduceIn = this.mapoutputFile.getInputFile(mapId, reduceId);
           reduceIn.getParentFile().mkdirs();
           if (!localFs.rename(mapOut, reduceIn))

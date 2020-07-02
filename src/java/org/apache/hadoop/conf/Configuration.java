@@ -288,7 +288,7 @@ public class Configuration {
     for (int i = 0; i < dirs.length; i++) {  // try each local dir
       // 根据hash值去pick一个dir
       int index = (hashCode+i & Integer.MAX_VALUE) % dirs.length;
-      //  “dir/path” 检查这个长路径，是不是合理
+      //  “dir/path” 检查这个长路径，是不是存在
       File file = new File(dirs[index], path).getAbsoluteFile();
       File dir = file.getParentFile();
       if (dir.exists() || dir.mkdirs()) {

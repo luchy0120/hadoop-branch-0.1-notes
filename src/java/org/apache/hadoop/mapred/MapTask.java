@@ -70,17 +70,22 @@ class MapTask extends Task {
     throws IOException {
 
     // open output files
+    //  有几个reduce task就有分几个partition
     final int partitions = job.getNumReduceTasks();
     final SequenceFile.Writer[] outs = new SequenceFile.Writer[partitions];
     try {
       for (int i = 0; i < partitions; i++) {
+        // 如果有多个partition，那么文件名为 part-1.out, part-2.out，每个partition都是一个sequenceFile
+        // 他们都放在taskid的文件夹下
         outs[i] =
           new SequenceFile.Writer(FileSystem.getNamed("local", job),
                                   this.mapOutputFile.getOutputFile(getTaskId(), i).toString(),
+                                  // key class
                                   job.getOutputKeyClass(),
+                                  // value class
                                   job.getOutputValueClass());
       }
-
+      // 根据key找到相应的partition
       final Partitioner partitioner =
         (Partitioner)job.newInstance(job.getPartitionerClass());
 
@@ -88,6 +93,7 @@ class MapTask extends Task {
           public synchronized void collect(WritableComparable key,
                                            Writable value)
             throws IOException {
+            // 往那个partition的SequenceFile写一个新的key，value对
             outs[partitioner.getPartition(key, value, partitions)]
               .append(key, value);
             reportProgress(umbilical);
@@ -99,6 +105,8 @@ class MapTask extends Task {
 
       boolean combining = job.getCombinerClass() != null;
       if (combining) {                            // add combining collector
+        // 在partCollector 外部包装一层 combingCollector, 使用combiner而不是reducer去collect结果
+        // combiner 会传入关于一个key的一些values，利用values去计算一个中间结果
         collector = new CombiningCollector(job, partCollector, reporter);
       }
 
@@ -111,11 +119,13 @@ class MapTask extends Task {
 
           public synchronized boolean next(Writable key, Writable value)
             throws IOException {
-
+            // 读取了这个分片的百分之多少
             float progress =                        // compute progress
               (float)Math.min((rawIn.getPos()-split.getStart())*perByte, 1.0f);
+            // 把这个读取进度报告一下
             reportProgress(umbilical, progress);
 
+            // 读取一行记录，将key和value读到
             return rawIn.next(key, value);
           }
           public long getPos() throws IOException { return rawIn.getPos(); }
@@ -129,6 +139,7 @@ class MapTask extends Task {
         runner.run(in, collector, reporter);      // run the map
 
         if (combining) {                          // flush combiner
+          // 最后要flush一次，跑一下combiner
           ((CombiningCollector)collector).flush();
         }
 
@@ -139,6 +150,8 @@ class MapTask extends Task {
         in.close();                               // close input
       }
     } finally {
+
+      // 关闭所有Writer
       for (int i = 0; i < partitions; i++) {      // close output
         if (outs[i] != null) {
           outs[i].close();

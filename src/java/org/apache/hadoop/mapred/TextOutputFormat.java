@@ -38,6 +38,7 @@ public class TextOutputFormat extends OutputFormatBase {
     return new RecordWriter() {
         public synchronized void write(WritableComparable key, Writable value)
           throws IOException {
+            // 输出一行一行的 key 和 value 记录
           out.write(key.toString().getBytes("UTF-8"));
           out.writeByte('\t');
           out.write(value.toString().getBytes("UTF-8"));

@@ -40,11 +40,14 @@ public class MapRunner implements MapRunnable {
     throws IOException {
     try {
       // allocate key & value instances that are re-used for all entries
+      // key 和 value 都是可以复用的，每次都读这两个变量
       WritableComparable key =
         (WritableComparable)job.newInstance(inputKeyClass);
       Writable value = (Writable)job.newInstance(inputValueClass);
+      // 从reader里面读取成功
       while (input.next(key, value)) {
         // map pair to output
+        // 将key和value传递给mapper，执行mapper的逻辑
         mapper.map(key, value, output, reporter);
       }
     } finally {

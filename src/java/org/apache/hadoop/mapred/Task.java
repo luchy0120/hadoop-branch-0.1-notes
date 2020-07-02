@@ -27,7 +27,7 @@ abstract class Task implements Writable, Configurable {
   ////////////////////////////////////////////
   // Fields
   ////////////////////////////////////////////
-
+  // job 配置文件
   private String jobFile;                         // job configuration file
   private String taskId;                          // unique, includes job id
   ////////////////////////////////////////////
@@ -75,6 +75,7 @@ abstract class Task implements Writable, Configurable {
   public abstract TaskRunner createRunner(TaskTracker tracker);
 
   /** The number of milliseconds between progress reports. */
+  // 每隔1000毫秒 报告progress
   public static final int PROGRESS_INTERVAL = 1000;
 
   private transient Progress taskProgress = new Progress();
@@ -106,6 +107,7 @@ abstract class Task implements Writable, Configurable {
     long now = System.currentTimeMillis();
     if (now > nextProgressTime)  {
       synchronized (this) {
+        // 下次报告的时间
         nextProgressTime = now + PROGRESS_INTERVAL;
         float progress = taskProgress.get();
         String status = taskProgress.toString();

@@ -25,6 +25,7 @@ import org.apache.hadoop.io.*;
  * size of intermediate data.  Buffers a list of values for each unique key,
  * then invokes the combiner's reduce method to merge some values before
  * they're transferred to a reduce node. */
+// 提前做一些reduce工作，将相同key的values放到一起，调用combiner
 class CombiningCollector implements OutputCollector {
   private int limit;
 
@@ -45,7 +46,7 @@ class CombiningCollector implements OutputCollector {
     this.keyToValues = new TreeMap(job.getOutputKeyComparator());
     this.limit = job.getInt("mapred.combine.buffer.size", 100000);
   }
-
+  // 将多个相同的key对应的value聚集起来，添加到一个map中
   public synchronized void collect(WritableComparable key, Writable value)
     throws IOException {
 
@@ -55,14 +56,17 @@ class CombiningCollector implements OutputCollector {
     if (values == null) {
       // this is a new key, so create a new list
       values = new ArrayList(1);
+      // 将clone出来的value添加到values的list中
       values.add(valueClone);
+      // 复制key
       Writable keyClone = WritableUtils.clone(key, job);
       keyToValues.put(keyClone, values);
     } else {
       // other values for this key, so just add.
+      // 将clone出来的value添加到values的list中
       values.add(valueClone);
     }
-
+    // 计数
     count++;
 
     if (count >= this.limit) {                         // time to flush
@@ -73,11 +77,14 @@ class CombiningCollector implements OutputCollector {
   public synchronized void flush() throws IOException {
     Iterator pairs = keyToValues.entrySet().iterator();
     while (pairs.hasNext()) {
+      // 获得一个key  values
       Map.Entry pair = (Map.Entry)pairs.next();
+      // 将key和values传入一个combiner中，在combiner中将结果传给out，out会把根据key算哪个partition
       combiner.reduce((WritableComparable)pair.getKey(),
                       ((ArrayList)pair.getValue()).iterator(),
                       out, reporter);
     }
+    // 清空
     keyToValues.clear();
     count = 0;
   }

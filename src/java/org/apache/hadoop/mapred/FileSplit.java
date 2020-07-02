@@ -43,7 +43,9 @@ public class FileSplit implements Writable {
    */
   public FileSplit(File file, long start, long length) {
     this.file = file;
+    // 第一个byte的位置
     this.start = start;
+    // 处理的长度
     this.length = length;
   }
   
@@ -68,8 +70,11 @@ public class FileSplit implements Writable {
     out.writeLong(length);
   }
   public void readFields(DataInput in) throws IOException {
+    // 读取文件名
     file = new File(UTF8.readString(in));
+    // 文件的起始
     start = in.readLong();
+    // 文件的长度
     length = in.readLong();
   }
 

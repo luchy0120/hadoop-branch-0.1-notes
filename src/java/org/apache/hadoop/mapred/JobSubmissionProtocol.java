@@ -49,12 +49,15 @@ interface JobSubmissionProtocol {
     /**
      * Grab a handle to a job that is already known to the JobTracker
      */
+    // 获得job的状态
     public JobStatus getJobStatus(String jobid);
 
     /**
      * Grab a bunch of info on the tasks that make up the job
      */
+    // 根据jobid拿map task报告
     public TaskReport[] getMapTaskReports(String jobid);
+    // 根据jobid拿reduce task报告
     public TaskReport[] getReduceTaskReports(String jobid);
 
     /**

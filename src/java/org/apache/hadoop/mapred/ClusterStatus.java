@@ -22,6 +22,8 @@ public class ClusterStatus implements Writable {
        });
     }
 
+  // 有多少个task tracker， 多少个map， 多少个reduce tasks
+
   private int task_trackers;
   private int map_tasks;
   private int reduce_tasks;

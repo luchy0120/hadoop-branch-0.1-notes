@@ -35,11 +35,15 @@ class JobProfile implements Writable {
            public Writable newInstance() { return new JobProfile(); }
          });
     }
-
+    // 启动用户
     String user;
+    // job的id
     String jobid;
+    // job的配置
     String jobFile;
+    // job的url
     String url;
+    // job的名字
     String name;
 
     /**

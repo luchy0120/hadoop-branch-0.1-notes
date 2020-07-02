@@ -139,8 +139,11 @@ class MapOutputFile implements Writable, Configurable {
   }
 
   public void readFields(DataInput in) throws IOException {
+    // map的id
     this.mapTaskId = UTF8.readString(in);
+    // reduce的id
     this.reduceTaskId = UTF8.readString(in);
+    // 分为多个partition
     this.partition = in.readInt();
 
     ProgressReporter reporter = (ProgressReporter)REPORTERS.get();

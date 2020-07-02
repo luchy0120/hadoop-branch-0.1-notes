@@ -29,5 +29,6 @@ public interface Partitioner extends JobConfigurable {
    * @param numPartitions the number of partitions
    * @return the partition number
    */
+  // 根据key算出它在哪个partition
   int getPartition(WritableComparable key, Writable value, int numPartitions);
 }

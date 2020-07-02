@@ -58,8 +58,11 @@ public abstract class InputFormatBase implements InputFormat {
    */
   protected File[] listFiles(FileSystem fs, JobConf job)
     throws IOException {
+    // 输入文件夹
     File[] dirs = job.getInputDirs();
+    // working dir
     String workDir = job.getWorkingDirectory();
+    // 子文件夹
     String subdir = job.get("mapred.input.subdir");
     ArrayList result = new ArrayList();
     for (int i = 0; i < dirs.length; i++) {
@@ -68,18 +71,22 @@ public abstract class InputFormatBase implements InputFormat {
       if (workDir != null && !fs.isAbsolute(dirs[i])) {
         dirs[i] = new File(workDir, dirs[i].toString());
       }
+      // 获得每个输入文件夹内的文件
       File[] dir = fs.listFiles(dirs[i]);
       if (dir != null) {
         for (int j = 0; j < dir.length; j++) {
           File file = dir[j];
           if (subdir != null) {
+            // 有子目录，就添加下一级子目录，并列出所有文件
             File[] subFiles = fs.listFiles(new File(file, subdir));
             if (subFiles != null) {
               for (int k = 0; k < subFiles.length; k++) {
+                // 添加
                 result.add(subFiles[k]);
               }
             }
           } else {
+            // 没有子目录，说明已经是文件了，把文件添加进去
             result.add(file);
           }
         }
@@ -93,7 +100,8 @@ public abstract class InputFormatBase implements InputFormat {
   }
 
   /** Splits files returned by {#listFiles(FileSystem,JobConf) when
-   * they're too big.*/ 
+   * they're too big.*/
+  // 将文件分成splits
   public FileSplit[] getSplits(FileSystem fs, JobConf job, int numSplits)
     throws IOException {
 
@@ -101,6 +109,7 @@ public abstract class InputFormatBase implements InputFormat {
 
     for (int i = 0; i < files.length; i++) {      // check we have valid files
       File file = files[i];
+      // 检查是否都是文件
       if (fs.isDirectory(file) || !fs.exists(file)) {
         throw new IOException("Not a file: "+files[i]);
       }
@@ -108,16 +117,19 @@ public abstract class InputFormatBase implements InputFormat {
 
     long totalSize = 0;                           // compute total size
     for (int i = 0; i < files.length; i++) {
+      // 获得文件的大小
       totalSize += fs.getLength(files[i]);
     }
 
     long bytesPerSplit = totalSize / numSplits;   // start w/ desired num splits
 
+    // 一个Block的大小
     long fsBlockSize = fs.getBlockSize();
+    // 一个split的大小必须小于Block的大小，保证一个split在一个Block之内
     if (bytesPerSplit > fsBlockSize) {            // no larger than fs blocks
       bytesPerSplit = fsBlockSize;
     }
-
+    // 每个split至少多大
     long configuredMinSplitSize = job.getLong("mapred.min.split.size", 0);
     if( configuredMinSplitSize < minSplitSize )
     	configuredMinSplitSize = minSplitSize;
@@ -125,6 +137,7 @@ public abstract class InputFormatBase implements InputFormat {
       bytesPerSplit = configuredMinSplitSize;
     }
 
+    // 每个split的最大值
     long maxPerSplit = bytesPerSplit + (long)(bytesPerSplit*SPLIT_SLOP);
 
     //LOG.info("bytesPerSplit = " + bytesPerSplit);
@@ -133,10 +146,13 @@ public abstract class InputFormatBase implements InputFormat {
     ArrayList splits = new ArrayList(numSplits);  // generate splits
     for (int i = 0; i < files.length; i++) {
       File file = files[i];
+      // 获得当前文件的大小,将当前文件按照split大小进行切分，存在数组里
       long length = fs.getLength(file);
 
       long bytesRemaining = length;
+      // 比一个split的最大值还大,这个最大值故意留多了10%,使得剩下的bytes至少为10%
       while (bytesRemaining >= maxPerSplit) {
+        // 添加一个新的split, 第一个的start为0, 第二个为bytesPerSplit, 依次类推...
         splits.add(new FileSplit(file, length-bytesRemaining, bytesPerSplit));
         bytesRemaining -= bytesPerSplit;
       }

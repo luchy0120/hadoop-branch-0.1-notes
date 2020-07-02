@@ -59,7 +59,7 @@ public class JobConf extends Configuration {
    */
   public JobConf(Configuration conf) {
     super(conf);
-    addDefaultResource("mapred-default.xml");
+    addDefaultResource("mapred-defauge'tlt.xml");
   }
 
 
@@ -98,6 +98,7 @@ public class JobConf extends Configuration {
   public String getJar() { return get("mapred.jar"); }
   public void setJar(String jar) { set("mapred.jar", jar); }
 
+  // 临时文件夹
   public File getSystemDir() {
     return new File(get("mapred.system.dir", "/tmp/hadoop/mapred/system"))
       .getAbsoluteFile();
@@ -114,6 +115,7 @@ public class JobConf extends Configuration {
     }
   }
 
+  // 删除本地文件夹中的subdir, subdir是taskid
   public void deleteLocalFiles(String subdir) throws IOException {
     String[] localDirs = getLocalDirs();
     for (int i = 0; i < localDirs.length; i++) {
@@ -128,11 +130,12 @@ public class JobConf extends Configuration {
   }
 
   public void setInputDir(File dir) { set("mapred.input.dir", dir); }
-
+  // 添加一个文件夹
   public void addInputDir(File dir) {
     String dirs = get("mapred.input.dir");
     set("mapred.input.dir", dirs == null ? dir.toString() : dirs + "," + dir);
   }
+  // 输入文件夹
   public File[] getInputDirs() {
     String dirs = get("mapred.input.dir", "");
     ArrayList list = Collections.list(new StringTokenizer(dirs, ","));

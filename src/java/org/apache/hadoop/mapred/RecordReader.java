@@ -35,6 +35,7 @@ public interface RecordReader {
   boolean next(Writable key, Writable value) throws IOException;
 
   /** Returns the current position in the input. */
+  // 当前位置
   long getPos() throws IOException;
 
   /** Close this to future operations.*/ 

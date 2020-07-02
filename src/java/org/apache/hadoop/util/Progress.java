@@ -27,6 +27,7 @@ public class Progress {
   private String status = "";
   private float progress;
   private int currentPhase;
+  // 一个进度包含多个步骤
   private ArrayList phases = new ArrayList();
   private Progress parent;
   private float progressPerPhase;
@@ -34,7 +35,7 @@ public class Progress {
   /** Creates a new root node. */
   public Progress() {}
 
-  /** Adds a named node to the tree. */
+ /** Adds a named node to the tree. */
   public Progress addPhase(String status) {
     Progress phase = addPhase();
     phase.setStatus(status);
@@ -43,6 +44,7 @@ public class Progress {
 
   /** Adds a node to the tree. */
   public Progress addPhase() {
+    // 生成一个新的phase
     Progress phase = new Progress();
     phases.add(phase);
     phase.parent = this;

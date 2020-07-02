@@ -35,8 +35,9 @@ public class TextInputFormat extends InputFormatBase {
     throws IOException {
 
     reporter.setStatus(split.toString());
-
+    // split的开始位置
     final long start = split.getStart();
+    // split结束位置
     final long end = start + split.getLength();
 
     // open the file and seek to the start of the split
@@ -44,6 +45,7 @@ public class TextInputFormat extends InputFormatBase {
     
     if (start != 0) {
       in.seek(start-1);
+      // 一直走到下一行，把这行数据舍弃
       while (in.getPos() < end) {    // scan to the next newline in the file
         char c = (char)in.read();
         if (c == '\r' || c == '\n') {
@@ -59,12 +61,14 @@ public class TextInputFormat extends InputFormatBase {
           long pos = in.getPos();
           if (pos >= end)
             return false;
-
+          // key是行首第一个字母在文件里的位置
           ((LongWritable)key).set(pos);           // key is position
+          // value就是这一行
           ((UTF8)value).set(readLine(in));        // value is line
           return true;
         }
-        
+
+        // 获得流读到的位置
         public  synchronized long getPos() throws IOException {
           return in.getPos();
         }
@@ -74,6 +78,7 @@ public class TextInputFormat extends InputFormatBase {
       };
   }
 
+   // 读取一行数据
   private static String readLine(FSDataInputStream in) throws IOException {
     StringBuffer buffer = new StringBuffer();
     while (true) {
