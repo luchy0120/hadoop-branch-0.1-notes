@@ -56,6 +56,7 @@ class JobInProgress {
      * Create a JobInProgress with the given job file, plus a handle
      * to the tracker.
      */
+   // 使用jobfile 新建jobinprogress
     public JobInProgress(String jobFile, JobTracker jobtracker, 
                          Configuration default_conf) throws IOException {
         String jobid = "job_" + jobtracker.createUniqueId();
@@ -104,6 +105,7 @@ class JobInProgress {
         FileSystem fs = FileSystem.get(conf);
         String ifClassName = jd.get("mapred.input.format.class");
         InputFormat inputFormat;
+        // 配置过了，就加载配置的类
         if (ifClassName != null && localJarFile != null) {
           try {
             ClassLoader loader =
@@ -116,7 +118,7 @@ class JobInProgress {
         } else {
           inputFormat = jd.getInputFormat();
         }
-
+        // 根据conf里配置的map tasks
         FileSplit[] splits = inputFormat.getSplits(fs, jd, numMapTasks);
 
         //
@@ -133,6 +135,7 @@ class JobInProgress {
         //
         // adjust number of map tasks to actual number of splits
         //
+        // 有多少split就有多少map task
         this.numMapTasks = splits.length;
         // create a map task for each split
         this.maps = new TaskInProgress[numMapTasks];
@@ -239,20 +242,26 @@ class JobInProgress {
     ////////////////////////////////////////////////////
     public void updateTaskStatus(TaskInProgress tip, TaskStatus status) {
         double oldProgress = tip.getProgress();   // save old progress
+        // 先更新task的状态
         tip.updateStatus(status);                 // update tip
-
+        // 再更新job级别的status
         //
         // Update JobInProgress status
         //
+        // 进度增量
         double progressDelta = tip.getProgress() - oldProgress;
+        // task是一个maptask
         if (tip.isMapTask()) {
           if (maps.length == 0) {
+              // 100%
             this.status.setMapProgress(1.0f);
           } else {
+              // 增加了百分之多少
             this.status.mapProgress += (progressDelta / maps.length);
           }
         } else {
           if (reduces.length == 0) {
+              // 100%
             this.status.setReduceProgress(1.0f);
           } else {
             this.status.reduceProgress += (progressDelta / reduces.length);
@@ -266,6 +275,7 @@ class JobInProgress {
     /**
      * Return a MapTask, if appropriate, to run on the given tasktracker
      */
+    // 从本job里拿一个 map task 给task tracker
     public Task obtainNewMapTask(String taskTracker, TaskTrackerStatus tts) {
         if (! tasksInited) {
             LOG.info("Cannot create task split for " + profile.getJobId());
@@ -285,7 +295,7 @@ class JobInProgress {
 
         //
         // Compute avg progress through the map tasks
-        //
+        // 本job的status
         double avgProgress = status.mapProgress() / maps.length;
 
         //
@@ -293,6 +303,7 @@ class JobInProgress {
         // the TaskTracker checking in.  That means the block
         // doesn't have to be transmitted from another node.
         //
+        // 看看 那个task tracker 上有没有 一个split ，有就记录这个map的index在cache target里
         for (int i = 0; i < maps.length; i++) {
             if (maps[i].hasTaskWithCacheHit(taskTracker, tts)) {
                 if (cacheTarget < 0) {
@@ -307,6 +318,7 @@ class JobInProgress {
         // a std. task to run.
         //
         if (cacheTarget < 0) {
+            // 有没有一个正常的task 来run
             for (int i = 0; i < maps.length; i++) {
                 if (maps[i].hasTask()) {
                     if (stdTarget < 0) {
@@ -322,7 +334,8 @@ class JobInProgress {
         // there's a speculative task to run.
         //
         if (cacheTarget < 0 && stdTarget < 0) {
-            for (int i = 0; i < maps.length; i++) {        
+            for (int i = 0; i < maps.length; i++) {
+                // 有没有备份任务 需要run
                 if (maps[i].hasSpeculativeTask(avgProgress)) {
                     if (specTarget < 0) {
                         specTarget = i;
@@ -335,6 +348,7 @@ class JobInProgress {
         //
         // Run whatever we found
         //
+        // 优先选 split 在task  tracker 机器上的
         if (cacheTarget >= 0) {
             t = maps[cacheTarget].getTaskToRun(taskTracker, tts, avgProgress);
         } else if (stdTarget >= 0) {
@@ -471,11 +485,14 @@ class JobInProgress {
     synchronized void garbageCollect() {
       try {
         // Definitely remove the local-disk copy of the job file
+          // 本地文件系统
         FileSystem localFs = FileSystem.getNamed("local", conf);
+        // 删掉jobFile
         if (localJobFile != null) {
             localFs.delete(localJobFile);
             localJobFile = null;
         }
+        // 删掉jar包
         if (localJarFile != null) {
             localFs.delete(localJarFile);
             localJarFile = null;
@@ -484,6 +501,7 @@ class JobInProgress {
         // JobClient always creates a new directory with job files
         // so we remove that directory to cleanup
         FileSystem fs = FileSystem.get(conf);
+        // 删掉hdfs上的jobfile所在的文件夹
         fs.delete(new File(profile.getJobFile()).getParentFile());
 
       } catch (IOException e) {

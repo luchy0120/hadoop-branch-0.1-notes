@@ -21,6 +21,8 @@ import java.io.*;
 
 /** A report on the state of a task. */
 public class TaskReport implements Writable {
+
+  // task的状态汇报， 主要是字符串 描述
   private String taskid;
   private float progress;
   private String state;

@@ -53,7 +53,7 @@ public class TextInputFormat extends InputFormatBase {
         }
       }
     }
-
+    // key 是位置  value 是这一行
     return new RecordReader() {
         /** Read a line. */
         public synchronized boolean next(Writable key, Writable value)

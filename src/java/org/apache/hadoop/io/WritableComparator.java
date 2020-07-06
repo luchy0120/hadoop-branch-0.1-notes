@@ -65,6 +65,7 @@ public class WritableComparator implements Comparator {
   public Class getKeyClass() { return keyClass; }
 
   /** Construct a new {@link WritableComparable} instance. */
+  // 创建一个新的key
   public WritableComparable newKey() {
     try {
       return (WritableComparable)keyClass.newInstance();

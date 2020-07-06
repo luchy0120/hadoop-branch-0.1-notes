@@ -34,8 +34,11 @@ abstract class TaskRunner extends Thread {
     LogFormatter.getLogger("org.apache.hadoop.mapred.TaskRunner");
 
   boolean killed = false;
-  private Process process;
+  // 子进程
+
+  // 任务
   private Task t;
+  // tasktracker
   private TaskTracker tracker;
 
   protected Configuration conf;
@@ -68,6 +71,7 @@ abstract class TaskRunner extends Thread {
       }
 
       String sep = System.getProperty("path.separator");
+      // 在jobfile 边上放一个work 文件夹
       File workDir = new File(new File(t.getJobFile()).getParent(), "work");
       workDir.mkdirs();
                
@@ -79,7 +83,9 @@ abstract class TaskRunner extends Thread {
       JobConf job = new JobConf(t.getJobFile());
       String jar = job.getJar();
       if (jar != null) {                      // if jar exists, it into workDir
+        // 解压 到work 文件夹下
         unJar(new File(jar), workDir);
+        // 把 lib 下的文件都添加到classpath
         File[] libs = new File(workDir, "lib").listFiles();
         if (libs != null) {
           for (int i = 0; i < libs.length; i++) {
@@ -88,6 +94,7 @@ abstract class TaskRunner extends Thread {
           }
         }
         classPath.append(sep);
+        // 把 classes 文件夹添加到classpath
         classPath.append(new File(workDir, "classes"));
         classPath.append(sep);
         classPath.append(workDir);
@@ -95,6 +102,7 @@ abstract class TaskRunner extends Thread {
 
       //  Build exec child jmv args.
       Vector vargs = new Vector(8);
+      // 找到java，准备run 子process
       File jvm =                                  // use same jvm as parent
         new File(new File(System.getProperty("java.home"), "bin"), "java");
 
@@ -123,12 +131,14 @@ abstract class TaskRunner extends Thread {
       //     -Dcom.sun.management.jmxremote.port=@port@
       //     </value>
       //
+      // 设置堆最小值
       String javaOpts = handleDeprecatedHeapSize(
           job.get("mapred.child.java.opts", "-Xmx200m"),
           job.get("mapred.child.heap.size"));
       javaOpts = replaceAll(javaOpts, "@taskid@", t.getTaskId());
       int port = job.getInt("mapred.task.tracker.report.port", 50050) + 1;
       javaOpts = replaceAll(javaOpts, "@port@", Integer.toString(port));
+      // 空格分开的
       String [] javaOptsSplit = javaOpts.split(" ");
       for (int i = 0; i < javaOptsSplit.length; i++) {
          vargs.add(javaOptsSplit[i]);
@@ -137,11 +147,13 @@ abstract class TaskRunner extends Thread {
       // Add classpath.
       vargs.add("-classpath");
       vargs.add(classPath.toString());
-      // Add main class and its arguments 
+      // Add main class and its arguments
+      // 儿子类
       vargs.add(TaskTracker.Child.class.getName());  // main of Child
       vargs.add(tracker.taskReportPort + "");        // pass umbilical port
       vargs.add(t.getTaskId());                      // pass task identifier
       // Run java
+      // 跑起来
       runChild((String[])vargs.toArray(new String[0]), workDir);
     } catch (FSError e) {
       LOG.log(Level.SEVERE, "FSError", e);
@@ -206,6 +218,7 @@ abstract class TaskRunner extends Thread {
    * <code>text</code> is returned if <code>toFind</code> is not
    * found in <code>text<code>).
    */
+  // 将text中的toFind 替换为 replacement
   private static String replaceAll(String text, final String toFind,
       final String replacement) {
     if (text ==  null || toFind ==  null || replacement ==  null) {
@@ -222,22 +235,26 @@ abstract class TaskRunner extends Thread {
     }
     return text;
   }
-
+  // 解开 jar， 到toDir 下
   private void unJar(File jarFile, File toDir) throws IOException {
     JarFile jar = new JarFile(jarFile);
     try {
       Enumeration entries = jar.entries();
       while (entries.hasMoreElements()) {
+        // 每一项
         JarEntry entry = (JarEntry)entries.nextElement();
         if (!entry.isDirectory()) {
+          // 文件
           InputStream in = jar.getInputStream(entry);
           try {
+            // 解压出来的位置
             File file = new File(toDir, entry.getName());
             file.getParentFile().mkdirs();
             OutputStream out = new FileOutputStream(file);
             try {
               byte[] buffer = new byte[8192];
               int i;
+              // 读取 文件， 解压到输出的位置
               while ((i = in.read(buffer)) != -1) {
                 out.write(buffer, 0, i);
               }
@@ -258,6 +275,7 @@ abstract class TaskRunner extends Thread {
    * Run the child process
    */
   private void runChild(String[] args, File dir) throws IOException {
+    // 启动新的进程
     this.process = Runtime.getRuntime().exec(args, null, dir);
     try {
       StringBuffer errorBuf = new StringBuffer();
@@ -266,7 +284,7 @@ abstract class TaskRunner extends Thread {
           logStream(process.getErrorStream());    // copy log output
         }
       }.start();
-        
+
       logStream(process.getInputStream());        // normally empty
       
       if (this.process.waitFor() != 0) {
@@ -292,6 +310,7 @@ abstract class TaskRunner extends Thread {
 
   /**
    */
+  // 读取child的输出
   private void logStream(InputStream output) {
     try {
       BufferedReader in = new BufferedReader(new InputStreamReader(output));

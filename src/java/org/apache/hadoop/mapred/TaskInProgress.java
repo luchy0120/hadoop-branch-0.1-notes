@@ -48,8 +48,10 @@ class TaskInProgress {
 
     // Defines the TIP
     private String jobFile = null;
+    // task 需要处理的分片
     private FileSplit split = null;
     private String hints[][] = null;
+    // 该task 之前需要处理的前置task们
     private TaskInProgress predecessors[] = null;
     private int partition;
     private JobTracker jobtracker;
@@ -64,6 +66,8 @@ class TaskInProgress {
     private long startTime = 0;
     private int completes = 0;
     private boolean failed = false;
+    // 可用的taskid
+
     private TreeSet usableTaskIds = new TreeSet();
     private TreeSet recentTasks = new TreeSet();
     private JobConf conf;
@@ -79,9 +83,12 @@ class TaskInProgress {
      */
     public TaskInProgress(String jobFile, FileSplit split, JobTracker jobtracker, JobConf conf, JobInProgress job) {
         this.jobFile = jobFile;
+        // 分片
         this.split = split;
+        // 所在的job
         this.jobtracker = jobtracker;
         this.job = job;
+        // job的配置
         this.conf = conf;
         init();
     }
@@ -91,6 +98,7 @@ class TaskInProgress {
      */
     public TaskInProgress(String jobFile, TaskInProgress predecessors[], int partition, JobTracker jobtracker, JobConf conf, JobInProgress job) {
         this.jobFile = jobFile;
+        // 前置的task们，前置的都是map task
         this.predecessors = predecessors;
         this.partition = partition;
         this.jobtracker = jobtracker;
@@ -103,8 +111,11 @@ class TaskInProgress {
      * Initialization common to Map and Reduce
      */
     void init() {
+        // 开始时间
         this.startTime = System.currentTimeMillis();
+        // 给他个唯一id
         this.id = "tip_" + jobtracker.createUniqueId();
+        // 所有taskid, 5个
         this.totalTaskIds = new String[MAX_TASK_EXECS + MAX_TASK_FAILURES];
         for (int i = 0; i < totalTaskIds.length; i++) {
             if (isMapTask()) {
@@ -112,6 +123,7 @@ class TaskInProgress {
             } else {
                 totalTaskIds[i] = "task_r_" + jobtracker.createUniqueId();
             }
+            // 可用的taskid
             usableTaskIds.add(totalTaskIds[i]);
         }
     }
@@ -135,6 +147,7 @@ class TaskInProgress {
     /**
      * Whether this is a map task
      */
+    // map 需要在分片上跑
     public boolean isMapTask() {
         return split != null;
     }
@@ -145,6 +158,7 @@ class TaskInProgress {
     }
     /**
      */
+    // 某个 taskid 是否完成
     public boolean isComplete(String taskid) {
         TaskStatus status = (TaskStatus) taskStatuses.get(taskid);
         if (status == null) {
@@ -161,6 +175,7 @@ class TaskInProgress {
     /**
      * Number of times the TaskInProgress has failed.
      */
+    // 失败的次数
     public int numTaskFailures() {
         return numTaskFailures;
     }
@@ -168,6 +183,7 @@ class TaskInProgress {
     /**
      * Get the overall progress (from 0 to 1.0) for this TIP
      */
+    // 进度
     public double getProgress() {
         return progress;
     }
@@ -184,6 +200,7 @@ class TaskInProgress {
         if ((ts != null) &&
             (! tasksReportedClosed.contains(taskid)) &&
             (job.getStatus().getRunState() != JobStatus.RUNNING)) {
+            // 在report close里面添加taskid
             tasksReportedClosed.add(taskid);
             return true;
         } else {
@@ -209,6 +226,7 @@ class TaskInProgress {
      * Most of the time, only a small number of the possible task-ids will
      * ever be used.
      */
+    // 可能可以备份地同时跑几个task， reduce只要检查到任意一个map task 完成了，就可以了
     public String[] getAllPossibleTaskIds() {
         return totalTaskIds;
     }
@@ -323,23 +341,30 @@ class TaskInProgress {
      * progress for the TIP.  We examine all sub-tasks and find 
      * the one that's most advanced (and non-failed).
      */
+    // 更新一下progress
     void recomputeProgress() {
+        // 完成了，就是1
         if (isComplete()) {
             this.progress = 1;
         } else if (failed) {
+            // 失败了是0
             this.progress = 0;
         } else {
+            // 最好的进度
             double bestProgress = 0;
             String bestState = "";
             for (Iterator it = taskStatuses.keySet().iterator(); it.hasNext(); ) {
+                // 某个tassk_id
                 String taskid = (String) it.next();
                 TaskStatus status = (TaskStatus) taskStatuses.get(taskid);
                 if (status.getRunState() == TaskStatus.SUCCEEDED) {
+                    // 有成功的，最好的就是1
                     bestProgress = 1;
                     bestState = status.getStateString();
                     break;
                 } else if (status.getRunState() == TaskStatus.RUNNING) {
                   if (status.getProgress() >= bestProgress) {
+                      // 在跑，并且进度最超前
                     bestProgress = status.getProgress();
                     bestState = status.getStateString();
                   }
@@ -358,6 +383,7 @@ class TaskInProgress {
      * Return whether this TIP has an DFS cache-driven task 
      * to run at the given taskTracker.
      */
+    // 分片是否在这个tasktracker 上
     boolean hasTaskWithCacheHit(String taskTracker, TaskTrackerStatus tts) {
         if (failed || isComplete() || recentTasks.size() > 0) {
             return false;
@@ -386,6 +412,7 @@ class TaskInProgress {
      * Return whether this TIP has a non-speculative task to run
      */
     boolean hasTask() {
+        // 有一个正常的需要去run的task吗？
         if (failed || isComplete() || recentTasks.size() > 0) {
             return false;
         } else {

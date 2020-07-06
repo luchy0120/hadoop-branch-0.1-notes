@@ -21,10 +21,12 @@ import java.io.IOException;
 /** Protocol that task child process uses to contact its parent process.  The
  * parent is a daemon which which polls the central master for a new map or
  * reduce task and runs it as a child process.  All communication between child
- * and parent is via this protocol. */ 
+ * and parent is via this protocol. */
+// 本地父子进程之间的通信
 interface TaskUmbilicalProtocol {
 
   /** Called when a child task process starts, to get its task.*/
+  // 儿子拿task
   Task getTask(String taskid) throws IOException;
 
   /** Report child's progress to parent.
@@ -32,6 +34,7 @@ interface TaskUmbilicalProtocol {
    * @param progress value between zero and one
    * @param state description of task's current state
    */
+  // 儿子汇报进度
   void progress(String taskid, float progress, String state)
     throws IOException;
 
@@ -40,16 +43,20 @@ interface TaskUmbilicalProtocol {
    *  @param taskid the id of the task involved
    *  @param trace the text to report
    */
+  // 儿子汇报问题给 parent
   void reportDiagnosticInfo(String taskid, String trace) throws IOException;
 
   /** Periodically called by child to check if parent is still alive. */
+  // 儿子 ping parent
   void ping(String taskid) throws IOException;
 
   /** Report that the task is successfully completed.  Failure is assumed if
    * the task process exits without calling this. */
+  // 儿子 汇报完成
   void done(String taskid) throws IOException;
 
   /** Report that the task encounted a local filesystem error.*/
+  // 儿子汇报 文件系统问题
   void fsError(String message) throws IOException;
 
 }

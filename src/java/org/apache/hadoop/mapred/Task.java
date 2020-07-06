@@ -105,9 +105,10 @@ abstract class Task implements Writable, Configurable {
   public void reportProgress(TaskUmbilicalProtocol umbilical)
     throws IOException {
     long now = System.currentTimeMillis();
+    // 比下次报告的时间晚，那么就报告
     if (now > nextProgressTime)  {
       synchronized (this) {
-        // 下次报告的时间
+        // 再下次报告的时间
         nextProgressTime = now + PROGRESS_INTERVAL;
         float progress = taskProgress.get();
         String status = taskProgress.toString();

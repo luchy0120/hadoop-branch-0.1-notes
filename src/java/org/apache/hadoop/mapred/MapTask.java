@@ -77,6 +77,7 @@ class MapTask extends Task {
       for (int i = 0; i < partitions; i++) {
         // 如果有多个partition，那么文件名为 part-1.out, part-2.out，每个partition都是一个sequenceFile
         // 他们都放在taskid的文件夹下
+        // map出来的结果写到本地文件系统里
         outs[i] =
           new SequenceFile.Writer(FileSystem.getNamed("local", job),
                                   this.mapOutputFile.getOutputFile(getTaskId(), i).toString(),
@@ -109,7 +110,7 @@ class MapTask extends Task {
         // combiner 会传入关于一个key的一些values，利用values去计算一个中间结果
         collector = new CombiningCollector(job, partCollector, reporter);
       }
-
+      // 根据jobconf 获取 inputformat
       final RecordReader rawIn =                  // open input
         job.getInputFormat().getRecordReader
         (FileSystem.get(job), split, job, reporter);

@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.FileSystem;
 /** A section of an input file.  Returned by {@link
  * InputFormat#getSplits(FileSystem, JobConf, int)} and passed to
  * InputFormat#getRecordReader(FileSystem,FileSplit,JobConf,Reporter). */
+// 一个文件分片，文件名 + 起始位置 + 长度
 public class FileSplit implements Writable {
   private File file;
   private long start;

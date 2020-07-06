@@ -87,6 +87,7 @@ public abstract class Server {
   }
 
   /** Listens on the socket, starting new connection threads. */
+  // 监听者线程
   private class Listener extends Thread {
     private ServerSocket socket;
 
@@ -101,6 +102,7 @@ public abstract class Server {
       LOG.info(getName() + ": starting");
       while (running) {
         try {
+          // 每收到一个连接，就建立一个新的connection线程
           new Connection(socket.accept()).start(); // start a new connection
         } catch (SocketTimeoutException e) {      // ignore timeouts
         } catch (Exception e) {                   // log all other exceptions
@@ -118,6 +120,7 @@ public abstract class Server {
 
   /** Reads calls from a connection and queues them for handling. */
   private class Connection extends Thread {
+    // 拿到socket，输入，输出
     private Socket socket;
     private DataInputStream in;
     private DataOutputStream out;
@@ -141,6 +144,7 @@ public abstract class Server {
         while (running) {
           int id;
           try {
+            // 读一个id
             id = in.readInt();                    // try to read an id
           } catch (SocketTimeoutException e) {
             continue;
@@ -148,20 +152,22 @@ public abstract class Server {
         
           if (LOG.isLoggable(Level.FINE))
             LOG.fine(getName() + " got #" + id);
-        
+          // 请求的参数
           Writable param = makeParam();           // read param
           param.readFields(in);        
-        
+          // call的id， 加上请求参数，构造一个call
           Call call = new Call(id, param, this);
         
           synchronized (callQueue) {
             callQueue.addLast(call);              // queue the call
             callQueue.notify();                   // wake up a waiting handler
+            // 唤醒一个handler
           }
         
           while (running && callQueue.size() >= maxQueuedCalls) {
             synchronized (callDequeued) {         // queue is full
               callDequeued.wait(timeout);         // wait for a dequeue
+              // 满了，等一个handler去消费
             }
           }
         }
@@ -182,6 +188,7 @@ public abstract class Server {
   }
 
   /** Handles queued calls . */
+  // 处理器，是一个线程，消费queue里的call
   private class Handler extends Thread {
     public Handler(int instanceNumber) {
       this.setDaemon(true);
@@ -257,7 +264,9 @@ public abstract class Server {
     this.conf = conf;
     this.port = port;
     this.paramClass = paramClass;
+    // 处理个数
     this.handlerCount = handlerCount;
+    // queue里最多有多少call
     this.maxQueuedCalls = handlerCount;
     this.timeout = conf.getInt("ipc.client.timeout",10000); 
   }
@@ -272,6 +281,7 @@ public abstract class Server {
     
     for (int i = 0; i < handlerCount; i++) {
       Handler handler = new Handler(i);
+      // 启动处理器，开始处理
       handler.start();
     }
   }

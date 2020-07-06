@@ -28,22 +28,26 @@ interface JobSubmissionProtocol {
      * Submit a Job for execution.  Returns the latest profile for
      * that job.
      */
+    // 提交一个job
     public JobStatus submitJob(String jobFile) throws IOException;
 
     /**
      * Get the current status of the cluster
      * @return summary of the state of the cluster
      */
+    // 获取集群状态
     public ClusterStatus getClusterStatus();
     
     /**
      * Kill the indicated job
      */
+    // 杀死一个job
     public void killJob(String jobid);
 
     /**
      * Grab a handle to a job that is already known to the JobTracker
      */
+    // 获取job的描述
     public JobProfile getJobProfile(String jobid);
 
     /**
@@ -66,5 +70,6 @@ interface JobSubmissionProtocol {
      * if dfs).  The client can then copy files into the right locations 
      * prior to submitting the job.
      */
+    // 返回底层的Filesystem 名字
     public String getFilesystemName() throws IOException;
 }

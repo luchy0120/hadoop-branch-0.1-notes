@@ -298,7 +298,7 @@ public class Client {
         try {
           call.wait(wait);                       // wait for the result，call被发出去以后，就挂起当前线程进行等待
         } catch (InterruptedException e) {}
-        wait = timeout - (System.currentTimeMillis() - call.lastActivity);   // 距离timeout的时刻还要等多久
+        wait = timeout - (System.currentTimeMillis() - call.lastActivity);   // 距离timeout的时刻还要等多久，还没timeout就再等等
       } while (!call.done && wait > 0);
 
       if (call.error != null) {

@@ -65,12 +65,15 @@ public abstract class FileSystem extends Configured {
         String cmd = argv[i];
         if ("-dfs".equals(cmd)) {
             i++;
+            // 从字符串构造address，namenode address
             InetSocketAddress addr = DataNode.createSocketAddr(argv[i++]);
             fs = new DistributedFileSystem(addr, conf);
         } else if ("-local".equals(cmd)) {
             i++;
+            // local 是本地文件系统
             fs = new LocalFileSystem(conf);
         } else {
+            // 命令行不指定，所以用配置文件里的
             fs = get(conf);                          // using default
             LOG.info("No FS indicated, using default:"+fs.getName());
 
@@ -95,12 +98,14 @@ public abstract class FileSystem extends Configured {
      * host:port pair, naming an DFS name server.*/
     public static FileSystem getNamed(String name, Configuration conf) throws IOException {
       FileSystem fs = (FileSystem)NAME_TO_FS.get(name);
+      // 取不到，那么就需要构造
       if (fs == null) {
         if ("local".equals(name)) {
           fs = new LocalFileSystem(conf);
         } else {
           fs = new DistributedFileSystem(DataNode.createSocketAddr(name), conf);
         }
+        // 支持两种Filesystem， 分布式与本地
         NAME_TO_FS.put(name, fs);
       }
       return fs;
@@ -112,6 +117,7 @@ public abstract class FileSystem extends Configured {
     }
 
     /** Return true iff file is a checksum file name.*/
+    // checksum 是个crc文件
     public static boolean isChecksumFile(File file) {
       String name = file.getName();
       return name.startsWith(".") && name.endsWith(".crc");

@@ -34,7 +34,9 @@ public class SequenceFileInputFormat extends InputFormatBase {
   protected File[] listFiles(FileSystem fs, JobConf job)
     throws IOException {
 
+    // 列出所有input 文件夹下的文件
     File[] files = super.listFiles(fs, job);
+
     for (int i = 0; i < files.length; i++) {
       File file = files[i];
       if (file.isDirectory()) {                   // it's a MapFile

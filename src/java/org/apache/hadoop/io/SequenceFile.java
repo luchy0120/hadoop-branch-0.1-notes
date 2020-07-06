@@ -28,6 +28,18 @@ import org.apache.hadoop.fs.*;
 import org.apache.hadoop.conf.*;
 import org.apache.hadoop.util.LogFormatter;
 
+
+//   序列文件由Header(header中包含SEQ开头的标识和一个版本号)加一条或多条记录，如果有同步点的话，记录之间还有同步点。record就是一条记录
+//
+//   record
+//     这种格式分为不压缩和RECORD压缩：
+//     a、NONE：不压缩，record的存储格式为：record的长度+key的长度+key+value
+//     b、RECORD：record压缩，record的格式为：record的长度+key的长度+key+压缩后的value。
+//   block
+//     这种压缩格式是将多条记录进行一起压缩，可以不断向数据块中压缩数据，直到块的字节数不小于io.seqfule.compress.blocksize属性中设置的字节数。这个值默认为1M。
+//     这个存储格式为：block的长度+key的长度+key+value的长度+value
+
+
 /** Support for flat files of binary key/value pairs. */
 public class SequenceFile {
   public static final Logger LOG =
@@ -40,7 +52,8 @@ public class SequenceFile {
   };
   // 先写一个escape值，占用4个byte，再写16byte的sync值
   private static final int SYNC_ESCAPE = -1;      // "length" of sync entries
-  private static final int SYNC_HASH_SIZE = 16;   // number of bytes in hash 
+  private static final int SYNC_HASH_SIZE = 16;   // number of bytes in hash
+  // 一个 escape 占用4 byte + 16
   private static final int SYNC_SIZE = 4+SYNC_HASH_SIZE; // escape + hash
 
   /** The number of bytes between sync points.*/
@@ -132,7 +145,7 @@ public class SequenceFile {
     
 
     /** Returns the class of keys in this file. */
-    public Class getKeyClass() { return keyClass; }
+    public Class getKeyClass() { return keyClass; s}
 
     /** Returns the class of values in this file. */
     public Class getValueClass() { return valClass; }
@@ -365,13 +378,15 @@ public class SequenceFile {
      * Returns the length of the key read, or -1 if at end of file.  The length
      * of the value may be computed by calling buffer.getLength() before and
      * after calls to this method. */
+    // 读入一个pair ， 存在buffer里
     public synchronized int next(DataOutputBuffer buffer) throws IOException {
       if (in.getPos() >= end)
         return -1;
 
       try {
+        // 读取长度
         int length = in.readInt();
-
+        // 读到一个 -1，是escape 值
         if (version[3] > 1 && sync != null &&
             length == SYNC_ESCAPE) {              // process a sync entry
           //LOG.info("sync@"+in.getPos());
@@ -379,13 +394,15 @@ public class SequenceFile {
           if (!Arrays.equals(sync, syncCheck))    // check it
             throw new IOException("File is corrupt!");
           syncSeen = true;
+          // 真的length， 表示key + value 总的大小
           length = in.readInt();                  // re-read length
         } else {
           syncSeen = false;
         }
-        
+        // key 的 大小
         int keyLength = in.readInt();
         buffer.write(in, length);
+        // 返回key大小
         return keyLength;
 
       } catch (ChecksumException e) {             // checksum failure
@@ -410,6 +427,7 @@ public class SequenceFile {
     }
 
     /** Seek to the next sync mark past a given position.*/
+    // 找到在position 后的sync 位置
     public synchronized void sync(long position) throws IOException {
       if (position+SYNC_SIZE >= end) {
         seek(end);
@@ -417,7 +435,10 @@ public class SequenceFile {
       }
 
       try {
+        // 第一次读，试着跳过一个潜在的escape
         seek(position+4);                         // skip escape
+
+        // 读到syncheck里
         in.readFully(syncCheck);
         int syncLen = sync.length;
         for (int i = 0; in.getPos() < end; i++) {
@@ -427,9 +448,12 @@ public class SequenceFile {
               break;
           }
           if (j == syncLen) {
+            // 刚才读到的是一个 escape + sync , 定位到刚才位置
             in.seek(in.getPos() - SYNC_SIZE);     // position before sync
+            // 正好停在一个escape + sync 之前的位置上
             return;
           }
+          // syncCheck 相当于一个 rollingBuffer， 存着16个byte
           syncCheck[i%syncLen] = in.readByte();
         }
       } catch (ChecksumException e) {             // checksum failure
@@ -545,7 +569,7 @@ public class SequenceFile {
       
       private Reader in;
       private FSDataOutputStream out;
-        private String outName;
+      private String outName;
 
       public SortPass(Configuration conf) throws IOException {
         in = new Reader(fs, inFile, conf);
@@ -557,17 +581,21 @@ public class SequenceFile {
         while (!atEof) {
           int count = 0;
           buffer.reset();
+          // buffer 的长度不超过限制
           while (!atEof && buffer.getLength() < limit) {
-
+            // 开始位置
             int start = buffer.getLength();       // read an entry into buffer
-            int keyLength = in.next(buffer);
-            int length = buffer.getLength() - start;
+            // 读取一个key
 
+            int keyLength = in.next(buffer);
+            // 读完后长度
+            int length = buffer.getLength() - start;
+            // 没读到
             if (keyLength == -1) {
               atEof = true;
               break;
             }
-
+            //
             if (count == starts.length)
               grow();
 
@@ -581,6 +609,7 @@ public class SequenceFile {
 
           // buffer is full -- sort & flush it
           LOG.finer("flushing segment " + segments);
+          // byte 数组
           rawBuffer = buffer.getData();
           sort(count);
           flush(count, segments==0 && atEof);
@@ -652,6 +681,7 @@ public class SequenceFile {
         int length = high - low;
 
         // Insertion sort on smallest arrays
+        // compare 比较两个buffer解析出来的key的大小 ， 按照key大小 排队
         if (length < 7) {
           for (int i=low; i<high; i++)
             for (int j=i; j>low && compare(dest[j-1], dest[j])>0; j--)
@@ -807,7 +837,7 @@ public class SequenceFile {
         queue.merge();
       }
     }
-
+    // 就是一个可以读key value 的reader
     private class MergeStream {
       private Reader in;
 
@@ -826,7 +856,9 @@ public class SequenceFile {
 
       public boolean next() throws IOException {
         buffer.reset();
+        // 把一个 key value 读入 buffer
         keyLength = in.next(buffer);
+        // key 的长度大于 0
         return keyLength >= 0;
       }
     }
@@ -836,6 +868,7 @@ public class SequenceFile {
       private boolean done;
       private boolean compress;
 
+      // 把 所有文件 里的key value 按照顺序排列起来 写出到一个文件
       public void add(MergeStream stream) throws IOException {
         if (size() == 0) {
           compress = stream.in.isCompressed();
@@ -852,9 +885,11 @@ public class SequenceFile {
         this.done = done;
       }
 
+      // 比较读取的key value 的大小
       protected boolean lessThan(Object a, Object b) {
         MergeStream msa = (MergeStream)a;
         MergeStream msb = (MergeStream)b;
+        // 比较两个byte
         return comparator.compare(msa.buffer.getData(), 0, msa.keyLength,
                                   msb.buffer.getData(), 0, msb.keyLength) < 0;
       }
@@ -866,13 +901,16 @@ public class SequenceFile {
         }
 
         while (size() != 0) {
+          // 取出 最小的key value
           MergeStream ms = (MergeStream)top();
           DataOutputBuffer buffer = ms.buffer;    // write top entry
+          // 把 key value 写出去
           writer.append(buffer.getData(), 0, buffer.getLength(), ms.keyLength);
           
           if (ms.next()) {                        // has another entry
             adjustTop();
           } else {
+            // 没有数据了，就pop掉这个文件
             pop();                                // done with this file
             ms.in.close();
           }

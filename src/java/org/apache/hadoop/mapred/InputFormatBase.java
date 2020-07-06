@@ -58,7 +58,7 @@ public abstract class InputFormatBase implements InputFormat {
    */
   protected File[] listFiles(FileSystem fs, JobConf job)
     throws IOException {
-    // 输入文件夹
+    // 输入文件夹们
     File[] dirs = job.getInputDirs();
     // working dir
     String workDir = job.getWorkingDirectory();
@@ -68,6 +68,7 @@ public abstract class InputFormatBase implements InputFormat {
     for (int i = 0; i < dirs.length; i++) {
       // if it is relative, make it absolute using the directory from the 
       // JobConf
+      // 如果用户给的dir是相对路径，就用working dir 作为前缀
       if (workDir != null && !fs.isAbsolute(dirs[i])) {
         dirs[i] = new File(workDir, dirs[i].toString());
       }
@@ -77,7 +78,7 @@ public abstract class InputFormatBase implements InputFormat {
         for (int j = 0; j < dir.length; j++) {
           File file = dir[j];
           if (subdir != null) {
-            // 有子目录，就添加下一级子目录，并列出所有文件
+            // 有子目录，就添加下一级子目录，并列出所有文件和目录
             File[] subFiles = fs.listFiles(new File(file, subdir));
             if (subFiles != null) {
               for (int k = 0; k < subFiles.length; k++) {
@@ -117,7 +118,7 @@ public abstract class InputFormatBase implements InputFormat {
 
     long totalSize = 0;                           // compute total size
     for (int i = 0; i < files.length; i++) {
-      // 获得文件的大小
+      // 获得所有文件的大小
       totalSize += fs.getLength(files[i]);
     }
 

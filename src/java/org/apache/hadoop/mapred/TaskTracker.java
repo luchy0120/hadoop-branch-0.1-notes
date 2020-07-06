@@ -94,6 +94,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
 
         this.fConf = conf;
         this.jobTrackAddr = jobTrackAddr;
+        // task 超时时间
         this.taskTimeout = conf.getInt("mapred.task.timeout", 10* 60 * 1000);
         this.mapOutputFile = new MapOutputFile();
         this.mapOutputFile.setConf(conf);
@@ -106,15 +107,19 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
      * close().
      */
     void initialize() throws IOException {
+        // tracker 名字
         this.taskTrackerName = "tracker_" + (Math.abs(r.nextInt()) % 100000);
+        // 开始了
         LOG.info("Starting tracker " + taskTrackerName);
+        // 本地host
         this.localHostname = InetAddress.getLocalHost().getHostName();
-
+        // 删除tasktracker 文件夹
         new JobConf(this.fConf).deleteLocalFiles(SUBDIR);
 
         // Clear out state tables
         this.tasks = new TreeMap();
         this.runningTasks = new TreeMap();
+        // 共有多少map reduce 任务
         this.mapTotal = 0;
         this.reduceTotal = 0;
 
@@ -125,6 +130,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
         // RPC initialization
         while (true) {
             try {
+                // 将自己作为instance，暴露
                 this.taskReportServer = RPC.getServer(this, this.taskReportPort, maxCurrentTasks, false, this.fConf);
                 this.taskReportServer.start();
                 break;
@@ -148,7 +154,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
         // Clear out temporary files that might be lying around
         this.mapOutputFile.cleanupStorage();
         this.justStarted = true;
-
+        // 启动一个client 向 jobtracker 发送消息
         this.jobClient = (InterTrackerProtocol) RPC.getProxy(InterTrackerProtocol.class, jobTrackAddr, this.fConf);
     }
 
@@ -362,13 +368,20 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
     // its TaskStatus, and the TaskRunner.
     ///////////////////////////////////////////////////////
     class TaskInProgress {
+        // 一个task 就有一个 tip
         Task task;
+        // 进度
         float progress;
+        // 状态
         int runstate;
         String stateString = "";
+        // 上次报告进度的时间
         long lastProgressReport;
+        // 诊断字符串
         StringBuffer diagnosticInfo = new StringBuffer();
+        // 运行task
         TaskRunner runner;
+
         boolean done = false;
         boolean wasKilled = false;
         private JobConf jobConf;
@@ -377,9 +390,12 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
          */
         public TaskInProgress(Task task, Configuration conf) throws IOException {
             this.task = task;
+
             this.lastProgressReport = System.currentTimeMillis();
             this.jobConf = new JobConf(conf);
+            // 删掉 本地的 tasktracker/13124322
             this.jobConf.deleteLocalFiles(SUBDIR + File.separator + task.getTaskId());
+
             localizeTask(task);
         }
 
@@ -388,24 +404,32 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
          * So here, edit the Task's fields appropriately.
          */
         void localizeTask(Task t) throws IOException {
+            // tasktracker/13124322/job.xml
             File localJobFile =
               this.jobConf.getLocalFile(SUBDIR+File.separator+t.getTaskId(), "job.xml");
+            // tasktracker/13124322/job.jar
             File localJarFile =
               this.jobConf.getLocalFile(SUBDIR+File.separator+t.getTaskId(), "job.jar");
 
+            // jobfile
             String jobFile = t.getJobFile();
+            // 从hdfs copy jobfile到本地 job.xml
             fs.copyToLocalFile(new File(jobFile), localJobFile);
+            // 设置task的jobfile
             t.setJobFile(localJobFile.getCanonicalPath());
 
             JobConf jc = new JobConf(localJobFile);
+
             String jarFile = jc.getJar();
             if (jarFile != null) {
+                // copy jar 包到本地 job.jar
               fs.copyToLocalFile(new File(jarFile), localJarFile);
               jc.setJar(localJarFile.getCanonicalPath());
 
               BufferedOutputStream out =
                 new BufferedOutputStream(new FileOutputStream(localJobFile));
               try {
+                  // 在配置中设置好jar包后，重写job.xml
                 jc.write(out);
               } finally {
                 out.close();
@@ -422,7 +446,9 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
         /**
          */
         public TaskStatus createStatus() {
+            // 将task现在的状态汇报出去
             TaskStatus status = new TaskStatus(task.getTaskId(), task.isMapTask(), progress, runstate, diagnosticInfo.toString(), (stateString == null) ? "" : stateString);
+            // 清空诊断信息
             if (diagnosticInfo.length() > 0) {
                 diagnosticInfo = new StringBuffer();
             }
@@ -436,6 +462,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
             this.progress = 0.0f;
             this.runstate = TaskStatus.RUNNING;
             this.diagnosticInfo = new StringBuffer();
+            // task的runner
             this.runner = task.createRunner(TaskTracker.this);
             this.runner.start();
         }
@@ -686,17 +713,23 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
           LOG.info("Child starting");
 
           Configuration conf = new Configuration();
+          // 端口
           int port = Integer.parseInt(args[0]);
+          // taskid
           String taskid = args[1];
+            // 本地的port
+            // 跟父亲说
           TaskUmbilicalProtocol umbilical =
             (TaskUmbilicalProtocol)RPC.getProxy(TaskUmbilicalProtocol.class,
                                                 new InetSocketAddress(port), conf);
-            
+           // 向parent 拿到 task
           Task task = umbilical.getTask(taskid);
+           // job 配置
           JobConf job = new JobConf(task.getJobFile());
 
           conf.addFinalResource(new File(task.getJobFile()));
 
+          // 不断ping parent
           startPinging(umbilical, taskid);        // start pinging parent
 
           try {
@@ -704,8 +737,10 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
               String workDir = job.getWorkingDirectory();
               if (workDir != null) {
                 FileSystem file_sys = FileSystem.get(job);
+                // filesystem 上面设置working dir
                 file_sys.setWorkingDirectory(new File(workDir));
               }
+              // 跑 task
               task.run(job, umbilical);           // run the task
           } catch (FSError e) {
             LOG.log(Level.SEVERE, "FSError from child", e);
@@ -722,6 +757,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
         /** Periodically ping parent and exit when this fails.*/
         private static void startPinging(final TaskUmbilicalProtocol umbilical,
                                          final String taskid) {
+            // 不断的ping father
           Thread thread = new Thread(new Runnable() {
               public void run() {
                 while (true) {

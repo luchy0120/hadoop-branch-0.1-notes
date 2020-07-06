@@ -115,7 +115,7 @@ public class JobConf extends Configuration {
     }
   }
 
-  // 删除本地文件夹中的subdir, subdir是taskid
+  // 删除本地文件夹中的subdir, subdir是taskid，或者是jobtracker
   public void deleteLocalFiles(String subdir) throws IOException {
     String[] localDirs = getLocalDirs();
     for (int i = 0; i < localDirs.length; i++) {

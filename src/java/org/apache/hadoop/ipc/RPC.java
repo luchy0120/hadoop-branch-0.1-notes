@@ -57,9 +57,13 @@ public class RPC {
   // Invovation是Writable的，就可以序列化
   /** A method invocation, including the method name and its parameters.*/
   private static class Invocation implements Writable, Configurable {
+    // 方法名
     private String methodName;
+    // 方法参数类型
     private Class[] parameterClasses;
+    // 方法参数
     private Object[] parameters;
+    // 配置
     private Configuration conf;
 
     public Invocation() {}
@@ -80,9 +84,13 @@ public class RPC {
     public Object[] getParameters() { return parameters; }
 
     public void readFields(DataInput in) throws IOException {
+      // 方法名
       methodName = UTF8.readString(in);
+      // 参数们
       parameters = new Object[in.readInt()];
+      // 参数类型们
       parameterClasses = new Class[parameters.length];
+
       ObjectWritable objectWritable = new ObjectWritable();
       for (int i = 0; i < parameters.length; i++) {
         parameters[i] = ObjectWritable.readObject(in, objectWritable, this.conf);
@@ -131,7 +139,7 @@ public class RPC {
       this.address = address;
       CLIENT = (Client) conf.getObject(Client.class.getName());
       if(CLIENT == null) {
-          CLIENT = new Client(ObjectWritable.class, conf);   // 第一个参数为valueclass
+          CLIENT = new Client(ObjectWritable.class, conf);   // 第一个参数为返回值的class类型
           conf.setObject(Client.class.getName(), CLIENT);
       }
     }
@@ -146,10 +154,13 @@ public class RPC {
 
   /** Construct a client-side proxy object that implements the named protocol,
    * talking to a server at the named address. */
+  // 客户端代理类
   public static Object getProxy(Class protocol, InetSocketAddress addr, Configuration conf) {
     return Proxy.newProxyInstance(protocol.getClassLoader(),
+                                  // 代理接口
                                   new Class[] { protocol },
                                   new Invoker(addr, conf));
+
   }
 
   /** Expert: Make multiple, parallel calls to a set of servers. */
@@ -160,11 +171,13 @@ public class RPC {
     Invocation[] invocations = new Invocation[params.length];
     for (int i = 0; i < params.length; i++)
       invocations[i] = new Invocation(method, params[i]);
-    CLIENT = (Client) conf.getObject(Client.class.getName());
+
+    // 需要调用的方法与参数
     if(CLIENT == null) {
         CLIENT = new Client(ObjectWritable.class, conf);
         conf.setObject(Client.class.getName(), CLIENT);
     }
+    // 调用后的返回值
     Writable[] wrappedValues = CLIENT.call(invocations, addrs);
     
     if (method.getReturnType() == Void.TYPE) {
@@ -172,7 +185,7 @@ public class RPC {
     }
 
     Object[] values =
-      (Object[])Array.newInstance(method.getReturnType(),wrappedValues.length);
+      (Object[])Array.newInstance(method.getReturnType(), wrappedValues.length);
     for (int i = 0; i < values.length; i++)
       if (wrappedValues[i] != null)
         values[i] = ((ObjectWritable)wrappedValues[i]).get();
@@ -236,6 +249,7 @@ public class RPC {
           implementation.getMethod(call.getMethodName(),
                                    call.getParameterClasses());
 
+        // 在instance上调用method，获得返回值
         Object value = method.invoke(instance, call.getParameters());
         if (verbose) log("Return: "+value);
 

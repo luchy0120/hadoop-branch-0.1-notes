@@ -30,13 +30,17 @@ public class SequenceFileRecordReader implements RecordReader {
   private long end;
   private boolean more = true;
 
+
+  // 根据Filesplit 的指示的信息读取record
   public SequenceFileRecordReader(Configuration conf, FileSplit split)
     throws IOException {
     FileSystem fs = FileSystem.get(conf);
+    // file system 上面读取某个分片， sequence 文件里的 sync 标志用来快速定位
     this.in = new SequenceFile.Reader(fs, split.getFile().toString(), conf);
     this.end = split.getStart() + split.getLength();
 
     if (split.getStart() > in.getPosition())
+      // 往前跑到sync的位置
       in.sync(split.getStart());                  // sync to start
 
     more = in.getPosition() < end;
@@ -55,6 +59,7 @@ public class SequenceFileRecordReader implements RecordReader {
     throws IOException {
     if (!more) return false;
     long pos = in.getPosition();
+    // 读取一个key value
     boolean eof = in.next(key, value);
     if (pos >= end && in.syncSeen()) {
       more = false;

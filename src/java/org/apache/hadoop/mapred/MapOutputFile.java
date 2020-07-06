@@ -72,7 +72,9 @@ class MapOutputFile implements Writable, Configurable {
   }
   public File getInputFile(String mapTaskIds[], String reduceTaskId)
     throws IOException {
+    // 遍历所有的map taskid
     for (int i = 0; i < mapTaskIds.length; i++) {
+      // 检查 reduceid + maptaskid 文件是否存在
       File file = jobConf.getLocalFile(reduceTaskId, mapTaskIds[i]+".out");
       if (file.exists())
         return file;

@@ -34,9 +34,11 @@ interface InterTrackerProtocol {
    * TaskTracker must also indicate whether this is the first interaction
    * (since state refresh)
    */
+  // tasktracker 汇报状态
   int emitHeartbeat(TaskTrackerStatus status, boolean initialContact);
 
   /** Called to get new tasks from from the job tracker for this tracker.*/
+  // task tracker 请求 task
   Task pollForNewTask(String trackerName);
 
   /** Called to find which tasks that have been run by this tracker should now
@@ -51,12 +53,14 @@ interface InterTrackerProtocol {
    * @param mapTasksNeeded an array of UTF8 naming map task ids whose output is needed.
    * @return an array of MapOutputLocation
    */
+  // 找map 输出文件在那个机器上
   MapOutputLocation[] locateMapOutputs(String taskId, String[][] mapTasksNeeded);
 
   /**
    * The task tracker calls this once, to discern where it can find
    * files referred to by the JobTracker
    */
+  // 文件系统名字
   public String getFilesystemName() throws IOException;
 }
 

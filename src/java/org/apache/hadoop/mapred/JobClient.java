@@ -44,8 +44,11 @@ public class JobClient implements MRConstants {
      * remote service to provide certain functionality.
      */
     class NetworkedJob implements RunningJob {
+        // 关于job的信息
         JobProfile profile;
+        // 关于job的状态
         JobStatus status;
+        // 状态时间
         long statustime;
 
         /**
@@ -58,7 +61,7 @@ public class JobClient implements MRConstants {
         public NetworkedJob(JobStatus job) throws IOException {
             this.status = job;
             this.profile = jobSubmitClient.getJobProfile(job.getJobId());
-            // 状态时间
+            // 状态更新时间
             this.statustime = System.currentTimeMillis();
         }
 
@@ -67,8 +70,10 @@ public class JobClient implements MRConstants {
          * it, if necessary
          */
         synchronized void ensureFreshStatus() throws IOException {
+            // 超过了age的时间，需要refresh一下
             if (System.currentTimeMillis() - statustime > MAX_JOBPROFILE_AGE) {
                 this.status = jobSubmitClient.getJobStatus(profile.getJobId());
+                // 状态更新时间
                 this.statustime = System.currentTimeMillis();
             }
         }

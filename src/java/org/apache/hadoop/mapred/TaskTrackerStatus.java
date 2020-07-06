@@ -63,6 +63,7 @@ class TaskTrackerStatus implements Writable {
 
     /**
      */
+    // task tracker 名字
     public String getTrackerName() {
         return trackerName;
     }
@@ -91,18 +92,21 @@ class TaskTrackerStatus implements Writable {
      */
     public int countMapTasks() {
         int mapCount = 0;
+        // task report 里面有多少 map
         for (Iterator it = taskReports.iterator(); it.hasNext(); ) {
             TaskStatus ts = (TaskStatus) it.next();
             if (ts.getIsMap()) {
                 mapCount++;
             }
         }
+        // 有多少个 map task
         return mapCount;
     }
 
     /**
      * Return the current ReduceTask count
      */
+    // 剩下的全是reduce 任务
     public int countReduceTasks() {
         return taskReports.size() - countMapTasks();
     }

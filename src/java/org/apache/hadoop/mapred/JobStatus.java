@@ -26,6 +26,7 @@ import java.io.*;
  *
  * @author Mike Cafarella
  **************************************************/
+// job当前的瞬时状态
 class JobStatus implements Writable {
 
     static {                                      // register a ctor
@@ -63,6 +64,7 @@ class JobStatus implements Writable {
     /**
      */
     public String getJobId() { return jobid; }
+    // map的进度
     public float mapProgress() { return mapProgress; }
     public void setMapProgress(float p) { this.mapProgress = p; }
     public float reduceProgress() { return reduceProgress; }

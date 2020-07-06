@@ -35,6 +35,7 @@ public class TextOutputFormat extends OutputFormatBase {
 
     final FSDataOutputStream out = fs.create(file);
 
+    // key 是string value 也是 string
     return new RecordWriter() {
         public synchronized void write(WritableComparable key, Writable value)
           throws IOException {

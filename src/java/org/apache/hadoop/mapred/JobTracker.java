@@ -76,6 +76,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
          * The run method lives for the life of the JobTracker, and removes TaskTrackers
          * that have not checked in for some time.
          */
+        // 将很久未联系的taskTracker 移除
         public void run() {
             while (shouldRun) {
                 //
@@ -94,13 +95,16 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
                 synchronized (taskTrackers) {
                     synchronized (trackerExpiryQueue) {
                         long now = System.currentTimeMillis();
+                        // 获取当前时间
                         TaskTrackerStatus leastRecent = null;
+                        // 最近最少访问的TaskTracker，并且最后访问的时间过去很久
                         while ((trackerExpiryQueue.size() > 0) &&
                                ((leastRecent = (TaskTrackerStatus) trackerExpiryQueue.first()) != null) &&
                                (now - leastRecent.getLastSeen() > TASKTRACKER_EXPIRY_INTERVAL)) {
 
                             // Remove profile from head of queue
                             trackerExpiryQueue.remove(leastRecent);
+                            // 最少访问的tracker的名字
                             String trackerName = leastRecent.getTrackerName();
 
                             // Figure out if last-seen time should be updated, or if tracker is dead
@@ -147,6 +151,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
          */
         public void run() {
             while (shouldRun) {
+                // 每隔一段时间
                 try {
                     Thread.sleep(RETIRE_JOB_CHECK_INTERVAL);
                 } catch (InterruptedException ie) {
@@ -159,11 +164,13 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
                                 String jobid = (String) it.next();
                                 JobInProgress job = (JobInProgress) jobs.get(jobid);
 
+                                // job 不是准备也不是runnning状态，job完成时间在很久之前
                                 if (job.getStatus().getRunState() != JobStatus.RUNNING &&
                                     job.getStatus().getRunState() != JobStatus.PREP &&
                                     (job.getFinishTime() + RETIRE_JOB_INTERVAL < System.currentTimeMillis())) {
+                                    // 删掉job
                                     it.remove();
-                            
+
                                     jobInitQueue.remove(job);
                                     jobsByArrival.remove(job);
                                 }
@@ -194,6 +201,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
                         jobInitQueue.remove(job);
                     } else {
                         try {
+                            // 等待，重试，查看queue 里面的job
                             jobInitQueue.wait(JOBINIT_SLEEP_INTERVAL);
                         } catch (InterruptedException iex) {
                         }
@@ -201,6 +209,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
                 }
                 try {
                     if (job != null) {
+                        // job初始化tasks
                         job.initTasks();
                     }
                 } catch (Exception e) {
@@ -218,12 +227,17 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     /////////////////////////////////////////////////////////////////
     // The real JobTracker
     ////////////////////////////////////////////////////////////////
+    // 端口
     int port;
+    // 本地机器名
     String localMachine;
+    // 开始时间
     long startTime;
+    // 总共提交
     int totalSubmissions = 0;
+    // 随机数
     Random r = new Random();
-
+    //
     private int maxCurrentTasks;
 
     //
@@ -243,28 +257,44 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     //
 
     // All the known jobs.  (jobid->JobInProgress)
+
+    // 一个job包含所有task
+
     TreeMap jobs = new TreeMap();
+    // 根据先来后到排列的队列
     Vector jobsByArrival = new Vector();
 
     // All the known TaskInProgress items, mapped to by taskids (taskid->TIP)
     TreeMap taskidToTIPMap = new TreeMap();
 
-    // (taskid --> trackerID) 
+    // (taskid --> trackerID)
+    // 使用taskid 获得trackerid
     TreeMap taskidToTrackerMap = new TreeMap();
 
     // (trackerID->TreeSet of taskids running at that tracker)
+    // 使用trackerid获得taskids
     TreeMap trackerToTaskMap = new TreeMap();
 
     //
     // Watch and expire TaskTracker objects using these structures.
     // We can map from Name->TaskTrackerStatus, or we can expire by time.
     //
+    // 所有maps
     int totalMaps = 0;
+    // 所有reduce
     int totalReduces = 0;
+
+    // 所有的 tasktrackers
     private TreeMap taskTrackers = new TreeMap();
+    // job初始化队列
     Vector jobInitQueue = new Vector();
+
+    // 检测过期tracker
     ExpireTrackers expireTrackers = new ExpireTrackers();
+
+    // 检测过期jobs
     RetireJobs retireJobs = new RetireJobs();
+    // job初始化
     JobInitThread initJobs = new JobInitThread();
 
     /**
@@ -280,6 +310,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
         public int compare(Object o1, Object o2) {
             TaskTrackerStatus p1 = (TaskTrackerStatus) o1;
             TaskTrackerStatus p2 = (TaskTrackerStatus) o2;
+            // 根据最后看到的时间排序
             if (p1.getLastSeen() < p2.getLastSeen()) {
                 return -1;
             } else if (p1.getLastSeen() > p2.getLastSeen()) {
@@ -292,6 +323,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
 
     // Used to provide an HTML view on Job, Task, and TaskTracker structures
     JobTrackerInfoServer infoServer;
+    // info web的端口
     int infoPort;
 
     Server interTrackerServer;
@@ -299,8 +331,11 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     // Some jobs are stored in a local system directory.  We can delete
     // the files when we're done with the job.
     static final String SUBDIR = "jobTracker";
+    // 文件系统
     FileSystem fs;
+    // 文件夹
     File systemDir;
+    // 配置
     private Configuration conf;
 
     /**
@@ -309,9 +344,11 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     JobTracker(Configuration conf) throws IOException {
         //
         // Grab some static constants
-        //
+        // 一个tracker 最多执行多少task
         maxCurrentTasks = conf.getInt("mapred.tasktracker.tasks.maximum", 2);
+        // job 隔多久被retire
         RETIRE_JOB_INTERVAL = conf.getLong("mapred.jobtracker.retirejob.interval", 24 * 60 * 60 * 1000);
+
         RETIRE_JOB_CHECK_INTERVAL = conf.getLong("mapred.jobtracker.retirejob.check", 60 * 1000);
         TASK_ALLOC_EPSILON = conf.getFloat("mapred.jobtracker.taskalloc.loadbalance.epsilon", 0.2f);
         PAD_FRACTION = conf.getFloat("mapred.jobtracker.taskalloc.capacitypad", 0.1f);
@@ -321,9 +358,12 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
         // on startup, and can delete any files that we're done with
         this.conf = conf;
         JobConf jobConf = new JobConf(conf);
+        // 一个临时文件夹
         this.systemDir = jobConf.getSystemDir();
         this.fs = FileSystem.get(conf);
+        // 删除sysdir
         FileUtil.fullyDelete(fs, systemDir);
+        // 新建sysdir
         fs.mkdirs(systemDir);
 
         // Same with 'localDir' except it's always on the local disk.
@@ -331,10 +371,15 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
 
         // Set ports, start RPC servers, etc.
         InetSocketAddress addr = getAddress(conf);
+
+        // 本地机器名
         this.localMachine = addr.getHostName();
+        // 端口
         this.port = addr.getPort();
+        // 启动 server，传入this，作为被调用的instance，10个handler线程来处理
         this.interTrackerServer = RPC.getServer(this, addr.getPort(), 10, false, conf);
         this.interTrackerServer.start();
+        // 打印system properties
 	Properties p = System.getProperties();
 	for (Iterator it = p.keySet().iterator(); it.hasNext(); ) {
 	    String key = (String) it.next();
@@ -342,14 +387,18 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
 	    LOG.info("Property '" + key + "' is " + val);
 	}
 
+	// 打开web页面
         this.infoPort = conf.getInt("mapred.job.tracker.info.port", 50030);
         this.infoServer = new JobTrackerInfoServer(this, infoPort);
         this.infoServer.start();
-
+    // 开始时间
         this.startTime = System.currentTimeMillis();
 
+        // 启动expiretracker
         new Thread(this.expireTrackers).start();
+        // 启动retirejob
         new Thread(this.retireJobs).start();
+        // 启动初始化jobs
         new Thread(this.initJobs).start();
     }
 
@@ -360,8 +409,11 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
       if (colon < 0) {
         throw new RuntimeException("Bad mapred.job.tracker: "+jobTrackerStr);
       }
+      // tracker的名字
       String jobTrackerName = jobTrackerStr.substring(0, colon);
+      // tracker的端口
       int jobTrackerPort = Integer.parseInt(jobTrackerStr.substring(colon+1));
+      //
       return new InetSocketAddress(jobTrackerName, jobTrackerPort);
     }
 
@@ -369,6 +421,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     /**
      * Run forever
      */
+    // 一直run
     public void offerService() {
         try {
             this.interTrackerServer.join();
@@ -380,10 +433,12 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     // Maintain lookup tables; called by JobInProgress
     // and TaskInProgress
     ///////////////////////////////////////////////////////
+    // 为 tasktracker创建 一个taskinprogress
     void createTaskEntry(String taskid, String taskTracker, TaskInProgress tip) {
         LOG.info("Adding task '" + taskid + "' to tip " + tip.getTIPId() + ", for tracker '" + taskTracker + "'");
 
         // taskid --> tracker
+        // 通过taskid 查询task tracker
         taskidToTrackerMap.put(taskid, taskTracker);
 
         // tracker --> taskid
@@ -394,7 +449,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
         }
         taskset.add(taskid);
 
-        // taskid --> TIP
+        // taskid --> TIP ， task id 和 task in progress
         taskidToTIPMap.put(taskid, tip);
     }
     void removeTaskEntry(String taskid) {
@@ -418,20 +473,25 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     public int getTotalSubmissions() {
         return totalSubmissions;
     }
+    // 本机名
     public String getJobTrackerMachine() {
         return localMachine;
     }
+    // 端口
     public int getTrackerPort() {
         return port;
     }
+    // info
     public int getInfoPort() {
         return infoPort;
     }
     public long getStartTime() {
         return startTime;
     }
+
     public Vector runningJobs() {
         Vector v = new Vector();
+        // 所有runnning的jobs
         for (Iterator it = jobs.values().iterator(); it.hasNext(); ) {
             JobInProgress jip = (JobInProgress) it.next();
             JobStatus status = jip.getStatus();
@@ -443,6 +503,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     }
     public Vector failedJobs() {
         Vector v = new Vector();
+        // 所有失败的job
         for (Iterator it = jobs.values().iterator(); it.hasNext(); ) {
             JobInProgress jip = (JobInProgress) it.next();
             JobStatus status = jip.getStatus();
@@ -454,6 +515,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     }
     public Vector completedJobs() {
         Vector v = new Vector();
+        // 所有完成的jobs
         for (Iterator it = jobs.values().iterator(); it.hasNext(); ) {
             JobInProgress jip = (JobInProgress) it.next();
             JobStatus status = jip.getStatus();
@@ -463,13 +525,18 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
         }
         return v;
     }
+
     public Collection taskTrackers() {
       synchronized (taskTrackers) {
+          // 所有task tracker的状态
         return taskTrackers.values();
       }
     }
+
+    // 某个task tracker 的status
     public TaskTrackerStatus getTaskTracker(String trackerID) {
       synchronized (taskTrackers) {
+          // task的当前状态
         return (TaskTrackerStatus) taskTrackers.get(trackerID);
       }
     }
@@ -479,9 +546,12 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     ////////////////////////////////////////////////////
     public void initialize(String taskTrackerName) {
       synchronized (taskTrackers) {
+          // 清空一下 tasktracker的记录
         boolean seenBefore = updateTaskTrackerStatus(taskTrackerName, null);
         if (seenBefore) {
+            // 如果之前有记录的话
           lostTaskTracker(taskTrackerName);
+        }
         }
       }
     }
@@ -496,15 +566,19 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
      */
     private boolean updateTaskTrackerStatus(String trackerName,
                                             TaskTrackerStatus status) {
+        // tasktracker的状态
       TaskTrackerStatus oldStatus = 
         (TaskTrackerStatus) taskTrackers.get(trackerName);
       if (oldStatus != null) {
+          // 减掉总共maptask个数
         totalMaps -= oldStatus.countMapTasks();
+         // 减掉总共reduce task个数
         totalReduces -= oldStatus.countReduceTasks();
         if (status == null) {
           taskTrackers.remove(trackerName);
         }
       }
+      // 使用新状态代替老状态
       if (status != null) {
         totalMaps += status.countMapTasks();
         totalReduces += status.countReduceTasks();
@@ -516,12 +590,17 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     /**
      * Process incoming heartbeat messages from the task trackers.
      */
+    // tasktracker  发来心跳了
     public synchronized int emitHeartbeat(TaskTrackerStatus trackerStatus, boolean initialContact) {
+        // tasktracker 的名字
         String trackerName = trackerStatus.getTrackerName();
+        // tasktracker 最后一次见面时间
         trackerStatus.setLastSeen(System.currentTimeMillis());
 
         synchronized (taskTrackers) {
             synchronized (trackerExpiryQueue) {
+                // 之前注册过该tracker吗？
+                // 使用发送过来的新状态更新totalmap，totalreduce个数
                 boolean seenBefore = updateTaskTrackerStatus(trackerName,
                                                              trackerStatus);
                 if (initialContact) {
@@ -530,13 +609,15 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
                         lostTaskTracker(trackerName);
                     }
                 } else {
+                    // seenbefore 应该位true才对，如果不是就有问题了，回复unknown
                     // If not first contact, there should be some record of the tracker
                     if (!seenBefore) {
                         return InterTrackerProtocol.UNKNOWN_TASKTRACKER;
                     }
                 }
-
+                // 初次接触
                 if (initialContact) {
+                    // 加入 expiryqueue
                     trackerExpiryQueue.add(trackerStatus);
                 }
             }
@@ -544,6 +625,8 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
 
         updateTaskStatuses(trackerStatus);
         //LOG.info("Got heartbeat from "+trackerName);
+
+        // 回复成功
         return InterTrackerProtocol.TRACKERS_OK;
     }
 
@@ -555,6 +638,9 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
      * and incorporate knowledge of DFS file placement.  But for right now, it
      * just grabs a single item out of the pending task list and hands it back.
      */
+    // tasktracker 过来要task 了
+
+    // 输入一个tasktracker， 传出一个task给他run
     public synchronized Task pollForNewTask(String taskTracker) {
         //
         // Compute average map and reduce task numbers across pool
@@ -564,13 +650,18 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
         int numTaskTrackers;
         TaskTrackerStatus tts;
         synchronized (taskTrackers) {
+            // 一共多少个task tracker
           numTaskTrackers = taskTrackers.size();
+          // 当前的 tasktracker 的状态
           tts = (TaskTrackerStatus) taskTrackers.get(taskTracker);
         }
         if (numTaskTrackers > 0) {
+            // 平均每个 task tracker 处理多少map
           avgMaps = totalMaps / numTaskTrackers;
+           // 平均每隔task tracker 处理多少 reduce
           avgReduces = totalReduces / numTaskTrackers;
         }
+        // 总共能跑多少task
         int totalCapacity = numTaskTrackers * maxCurrentTasks;
         //
         // Get map + reduce counts for the current tracker.
@@ -579,8 +670,9 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
           LOG.warning("Unknown task tracker polling; ignoring: " + taskTracker);
           return null;
         }
-
+        // 当前tracker 上有多少 map
         int numMaps = tts.countMapTasks();
+        // 当前tracker 上有多少 reduce
         int numReduces = tts.countReduceTasks();
 
         //
@@ -599,16 +691,19 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
         // larger than it really is.)
         //
         synchronized (jobsByArrival) {
+            // map数量不超过本 tracker 的 task上限，并且不超过平均值
             if ((numMaps < maxCurrentTasks) &&
                 (numMaps <= (avgMaps + TASK_ALLOC_EPSILON))) {
 
                 int totalNeededMaps = 0;
+                // 根据先来后到，遍历取得第一个running的job，从它里面拿一个map任务
                 for (Iterator it = jobsByArrival.iterator(); it.hasNext(); ) {
                     JobInProgress job = (JobInProgress) it.next();
+                    // job 不在run的状态，就跳过
                     if (job.getStatus().getRunState() != JobStatus.RUNNING) {
                         continue;
                     }
-
+                    // 从这个job里面获取一个map task来run
                     Task t = job.obtainNewMapTask(taskTracker, tts);
                     if (t != null) {
                         return t;
@@ -633,6 +728,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
             //
             // Same thing, but for reduce tasks
             //
+            // reduce task 小于最大task 数，并且小于平均数
             if ((numReduces < maxCurrentTasks) &&
                 (numReduces <= (avgReduces + TASK_ALLOC_EPSILON))) {
 
@@ -642,7 +738,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
                     if (job.getStatus().getRunState() != JobStatus.RUNNING) {
                         continue;
                     }
-
+                    // 选一个reduce 给他
                     Task t = job.obtainNewReduceTask(taskTracker, tts);
                     if (t != null) {
                         return t;
@@ -664,6 +760,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
                 }
             }
         }
+        // 获得不到任何task
         return null;
     }
 
@@ -671,12 +768,16 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
      * A tracker wants to know if any of its Tasks have been
      * closed (because the job completed, whether successfully or not)
      */
+    // 返回任意一个taskId， 它因为job的结束，自己也需要结束
     public synchronized String pollForTaskWithClosedJob(String taskTracker) {
+        // tracker 下的所有taskId
         TreeSet taskIds = (TreeSet) trackerToTaskMap.get(taskTracker);
         if (taskIds != null) {
             for (Iterator it = taskIds.iterator(); it.hasNext(); ) {
+                // task id
                 String taskId = (String) it.next();
                 TaskInProgress tip = (TaskInProgress) taskidToTIPMap.get(taskId);
+                // 因为job结束了，所以taskId也相应被关
                 if (tip.shouldCloseForClosedJob(taskId)) {
                     // 
                     // This is how the JobTracker ends a task at the TaskTracker.
@@ -695,23 +796,31 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
      * yet closed, tasks.  This exists so the reduce task thread can locate
      * map task outputs.
      */
+    // reduce task 获取map task 输出的位置
     public synchronized MapOutputLocation[] locateMapOutputs(String taskId, String[][] mapTasksNeeded) {
         ArrayList v = new ArrayList();
         for (int i = 0; i < mapTasksNeeded.length; i++) {
+            // 遍历所有需要的map task
             for (int j = 0; j < mapTasksNeeded[i].length; j++) {
+                // 使用task id获得task in progress
                 TaskInProgress tip = (TaskInProgress) taskidToTIPMap.get(mapTasksNeeded[i][j]);
+                // 是否完结了
                 if (tip != null && tip.isComplete(mapTasksNeeded[i][j])) {
+                    // 获得 task 所在tracker的id
                     String trackerId = (String) taskidToTrackerMap.get(mapTasksNeeded[i][j]);
                     TaskTrackerStatus tracker;
                     synchronized (taskTrackers) {
+                        // 获得tracker的状态
                       tracker = (TaskTrackerStatus) taskTrackers.get(trackerId);
                     }
+                    // map 的 taskid 和 tracker的host 和 port
                     v.add(new MapOutputLocation(mapTasksNeeded[i][j], tracker.getHost(), tracker.getPort()));
                     break;
                 }
             }
         }
         // randomly shuffle results to load-balance map output requests
+        // 将 location 打乱
         Collections.shuffle(v);
 
         return (MapOutputLocation[]) v.toArray(new MapOutputLocation[v.size()]);
@@ -721,6 +830,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
      * Grab the local fs name
      */
     public synchronized String getFilesystemName() throws IOException {
+        // 文件系统名称
         return fs.getName();
     }
 
@@ -740,23 +850,32 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
      * the right TaskTracker/Block mapping.
      */
     public synchronized JobStatus submitJob(String jobFile) throws IOException {
+        // 又提交了一个
         totalSubmissions++;
+
         JobInProgress job = new JobInProgress(jobFile, this, this.conf);
         synchronized (jobs) {
             synchronized (jobsByArrival) {
                 synchronized (jobInitQueue) {
+                    // 放入 jobid   和对应的 job
                     jobs.put(job.getProfile().getJobId(), job);
+
                     jobsByArrival.add(job);
+
+                    // 放入任务队列
                     jobInitQueue.add(job);
+                    // 唤醒消费者们去拿
                     jobInitQueue.notifyAll();
                 }
             }
         }
+        // 获取任务的状态
         return job.getStatus();
     }
 
     public synchronized ClusterStatus getClusterStatus() {
         synchronized (taskTrackers) {
+            // 获取cluster的状态
           return new ClusterStatus(taskTrackers.size(),
                                    totalMaps,
                                    totalReduces,
@@ -766,10 +885,12 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     
     public synchronized void killJob(String jobid) {
         JobInProgress job = (JobInProgress) jobs.get(jobid);
+        // 杀掉那个job
         job.kill();
     }
 
     public synchronized JobProfile getJobProfile(String jobid) {
+        // 根据jobid拿到job in progrss 的 profile
         JobInProgress job = (JobInProgress) jobs.get(jobid);
         if (job != null) {
             return job.getProfile();
@@ -778,6 +899,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
         }
     }
     public synchronized JobStatus getJobStatus(String jobid) {
+        // 根据jobid拿到job in progrss 的状态
         JobInProgress job = (JobInProgress) jobs.get(jobid);
         if (job != null) {
             return job.getStatus();
@@ -792,13 +914,17 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
         } else {
             Vector reports = new Vector();
             Vector completeMapTasks = job.reportTasksInProgress(true, true);
+            // 获得所有完成的taskinprocess
             for (Iterator it = completeMapTasks.iterator(); it.hasNext(); ) {
                 TaskInProgress tip = (TaskInProgress) it.next();
+                // task in progess的瞬时静态report
                 reports.add(tip.generateSingleReport());
             }
             Vector incompleteMapTasks = job.reportTasksInProgress(true, false);
+            // 获得所有未完成的taskinprogress
             for (Iterator it = incompleteMapTasks.iterator(); it.hasNext(); ) {
                 TaskInProgress tip = (TaskInProgress) it.next();
+                // task in progess的瞬时静态report
                 reports.add(tip.generateSingleReport());
             }
             return (TaskReport[]) reports.toArray(new TaskReport[reports.size()]);
@@ -806,19 +932,25 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     }
 
     public synchronized TaskReport[] getReduceTaskReports(String jobid) {
+        // 获取job in progress 对象
         JobInProgress job = (JobInProgress) jobs.get(jobid);
         if (job == null) {
             return new TaskReport[0];
         } else {
+            // 获取report
             Vector reports = new Vector();
             Vector completeReduceTasks = job.reportTasksInProgress(false, true);
+            // 所有完成的reducetasks
             for (Iterator it = completeReduceTasks.iterator(); it.hasNext(); ) {
                 TaskInProgress tip = (TaskInProgress) it.next();
+                // task in progess的瞬时静态report
                 reports.add(tip.generateSingleReport());
             }
+            // 所有完成的reducetasks
             Vector incompleteReduceTasks = job.reportTasksInProgress(false, false);
             for (Iterator it = incompleteReduceTasks.iterator(); it.hasNext(); ) {
                 TaskInProgress tip = (TaskInProgress) it.next();
+                // task in progess的瞬时静态report
                 reports.add(tip.generateSingleReport());
             }
             return (TaskReport[]) reports.toArray(new TaskReport[reports.size()]);
@@ -828,6 +960,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     ///////////////////////////////////////////////////////////////
     // JobTracker methods
     ///////////////////////////////////////////////////////////////
+    // 根据id获得jobinprocess
     public JobInProgress getJob(String jobid) {
         return (JobInProgress) jobs.get(jobid);
     }
@@ -848,14 +981,19 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
      * been updated.  Just process the contained tasks and any
      * jobs that might be affected.
      */
+    // 一个task tracker的状态
     void updateTaskStatuses(TaskTrackerStatus status) {
+        // 通过tasktracker获得所有taskstatus
         for (Iterator it = status.taskReports(); it.hasNext(); ) {
+            // task状态
             TaskStatus report = (TaskStatus) it.next();
             TaskInProgress tip = (TaskInProgress) taskidToTIPMap.get(report.getTaskId());
             if (tip == null) {
                 LOG.info("Serious problem.  While updating status, cannot find taskid " + report.getTaskId());
             } else {
+                // 根据task获得所在的job
                 JobInProgress job = tip.getJob();
+                // 先更新task in progress的状态，在更新job in progress的状态
                 job.updateTaskStatus(tip, report);
 
                 if (report.getRunState() == TaskStatus.SUCCEEDED) {
@@ -874,17 +1012,23 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
      * jobs that might be affected.
      */
     void lostTaskTracker(String trackerName) {
+        // tasktracker重连上来的时候，报一下lost
         LOG.info("Lost tracker '" + trackerName + "'");
+        // 丢失的任务们，把他们所属的job fail掉
         TreeSet lostTasks = (TreeSet) trackerToTaskMap.get(trackerName);
         trackerToTaskMap.remove(trackerName);
 
         if (lostTasks != null) {
             for (Iterator it = lostTasks.iterator(); it.hasNext(); ) {
+                // 任务们的id
                 String taskId = (String) it.next();
+                // 任务进度
                 TaskInProgress tip = (TaskInProgress) taskidToTIPMap.get(taskId);
 
                 // Tell the job to fail the relevant task
+                // 所在job的进度
                 JobInProgress job = tip.getJob();
+                // 所在job被fail掉
                 job.failedTask(tip, taskId, trackerName);
             }
         }
@@ -898,6 +1042,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
      * Start the JobTracker process.  This is used only for debugging.  As a rule,
      * JobTracker should be run as part of the DFS Namenode process.
      */
+    // jobtracker 启动在namenode上
     public static void main(String argv[]) throws IOException, InterruptedException {
         if (argv.length != 0) {
           System.out.println("usage: JobTracker");

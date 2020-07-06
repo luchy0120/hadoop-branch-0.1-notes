@@ -25,6 +25,7 @@ import org.apache.hadoop.fs.FileSystem;
  * The processing of an input file may be split across multiple machines.
  * Files are processed as sequences of records, implementing {@link
  * RecordReader}.  Files must thus be split on record boundaries. */
+// 文件都是record记录， 文件能被分割成split
 public interface InputFormat {
 
   /** Splits a set of input files.  One split is created per map task.
@@ -34,7 +35,7 @@ public interface InputFormat {
    * @param numSplits the desired number of splits
    * @return the splits
    */
-  // 一个split就是一个map的task
+  // 一个split就是给一个map的task
   FileSplit[] getSplits(FileSystem fs, JobConf job, int numSplits)
     throws IOException;
 

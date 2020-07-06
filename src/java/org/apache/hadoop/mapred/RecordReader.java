@@ -31,7 +31,8 @@ public interface RecordReader {
    * @return true iff a key/value was read, false if at EOF
    *
    * @see Writable#readFields(DataInput)
-   */      
+   */
+  // 不断读取key 和 value
   boolean next(Writable key, Writable value) throws IOException;
 
   /** Returns the current position in the input. */
