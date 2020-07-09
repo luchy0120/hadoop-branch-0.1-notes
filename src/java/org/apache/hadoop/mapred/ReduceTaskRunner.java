@@ -39,19 +39,26 @@ class ReduceTaskRunner extends TaskRunner {
 
   /** Assemble all of the map output files. */
   public boolean prepare() throws IOException {
+    // 获取reduce task
     ReduceTask task = ((ReduceTask)getTask());
+    // 删除taskId 下的文件，就是清空一下
     this.mapOutputFile.removeAll(task.getTaskId());    // cleanup from failures
+
     String[][] mapTaskIds = task.getMapTaskIds();
+    // 当前指针 currentphase 为0 ，所以为copyPhase
     final Progress copyPhase = getTask().getProgress().phase();
 
     // we need input from every map task
     Vector needed = new Vector();
     for (int i = 0; i < mapTaskIds.length; i++) {
       needed.add(mapTaskIds[i]);
+      // copy阶段下，为每个文件添加一个phase
       copyPhase.addPhase();                       // add sub-phase per file
     }
 
     InterTrackerProtocol jobClient = getTracker().getJobClient();
+
+
     while (needed.size() > 0) {
       getTask().reportProgress(getTracker());
 
@@ -59,6 +66,7 @@ class ReduceTaskRunner extends TaskRunner {
       // overwhelm jobtracker.  ideally perhaps we could send a more compact
       // representation of all needed, i.e., a bit-vector
       Collections.shuffle(needed);
+      // check 一小部分
       int checkSize = Math.min(10, needed.size());
       String[][] neededStrings = new String[checkSize][];
       for (int i = 0; i < checkSize; i++) {
@@ -85,6 +93,7 @@ class ReduceTaskRunner extends TaskRunner {
         MapOutputLocation loc = locs[i];
         InetSocketAddress addr =
           new InetSocketAddress(loc.getHost(), loc.getPort());
+        // 去跟那个tasktracker 通信
         MapOutputProtocol client =
           (MapOutputProtocol)RPC.getProxy(MapOutputProtocol.class, addr, this.conf);
 

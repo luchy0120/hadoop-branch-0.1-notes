@@ -40,6 +40,7 @@ class ReduceTask extends Task {
   private int partition;
   private boolean sortComplete;
 
+  // 在reduce 这颗树下 添加 copy， append， sort， reduce 节点
   { getProgress().setStatus("reduce"); }
 
   private Progress copyPhase = getProgress().addPhase("copy");
@@ -71,9 +72,10 @@ class ReduceTask extends Task {
 
   public void write(DataOutput out) throws IOException {
     super.write(out);
-
+    // 依赖的map task 有几个？
     out.writeInt(mapTaskIds.length);              // write mapTaskIds
     for (int i = 0; i < mapTaskIds.length; i++) {
+
         out.writeInt(mapTaskIds[i].length);
         for (int j = 0; j < mapTaskIds[i].length; j++) {
             UTF8.writeString(out, mapTaskIds[i][j]);
@@ -179,11 +181,14 @@ class ReduceTask extends Task {
     Class valueClass = job.getOutputValueClass();
     Reducer reducer = (Reducer)job.newInstance(job.getReducerClass());
     reducer.configure(job);
+
+    // 本地文件系统
     FileSystem lfs = FileSystem.getNamed("local", job);
 
     copyPhase.complete();                         // copy is already complete
 
     // open a file to collect map output
+    // 将所有的 map 合并到一个单一的 all.1 文件
     String file = job.getLocalFile(getTaskId(), "all.1").toString();
     SequenceFile.Writer writer =
       new SequenceFile.Writer(lfs, file, keyClass, valueClass);
@@ -192,6 +197,8 @@ class ReduceTask extends Task {
       for (int i = 0; i < mapTaskIds.length; i++) {
         appendPhase.addPhase();                 // one per file
       }
+      //   append parent
+      //  子  子  子   子
       
       DataOutputBuffer buffer = new DataOutputBuffer();
 
@@ -200,14 +207,19 @@ class ReduceTask extends Task {
           this.mapOutputFile.getInputFile(mapTaskIds[i], getTaskId());
         float progPerByte = 1.0f / lfs.getLength(partFile);
         Progress phase = appendPhase.phase();
+        // 文件名为status
         phase.setStatus(partFile.toString());
 
+        // 把一个part文件读入进来
         SequenceFile.Reader in =
           new SequenceFile.Reader(lfs, partFile.toString(), job);
         try {
           int keyLen;
+          // 读入key value pair 到buffer中
           while((keyLen = in.next(buffer)) > 0) {
+            // 写到单独的一个文件中
             writer.append(buffer.getData(), 0, buffer.getLength(), keyLen);
+            // 当前文件写出了百分之多少？
             phase.set(in.getPosition()*progPerByte);
             reportProgress(umbilical);
             buffer.reset();
@@ -221,7 +233,7 @@ class ReduceTask extends Task {
     } finally {
       writer.close();
     }
-      
+      // 将append 设置为100%
     appendPhase.complete();                     // append is complete
 
     // spawn a thread to give sort progress heartbeats
@@ -241,6 +253,7 @@ class ReduceTask extends Task {
       };
     sortProgress.setName("Sort progress reporter for task "+getTaskId());
 
+    // 排序后的输出文件
     String sortedFile = job.getLocalFile(getTaskId(), "all.2").toString();
 
     WritableComparator comparator = job.getOutputKeyComparator();
@@ -249,9 +262,11 @@ class ReduceTask extends Task {
       sortProgress.start();
 
       // sort the input file
+      // 一个能排序的东西
       SequenceFile.Sorter sorter =
         new SequenceFile.Sorter(lfs, comparator, valueClass, job);
       sorter.sort(file, sortedFile);              // sort
+      // 在本地删掉 all1文件
       lfs.delete(new File(file));                 // remove unsorted
 
     } finally {
@@ -267,6 +282,7 @@ class ReduceTask extends Task {
     OutputCollector collector = new OutputCollector() {
         public void collect(WritableComparable key, Writable value)
           throws IOException {
+          // 拿到一个就写一个pair
           out.write(key, value);
           reportProgress(umbilical);
         }

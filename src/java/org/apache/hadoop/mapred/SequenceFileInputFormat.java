@@ -49,7 +49,7 @@ public class SequenceFileInputFormat extends InputFormatBase {
   public RecordReader getRecordReader(FileSystem fs, FileSplit split,
                                       JobConf job, Reporter reporter)
     throws IOException {
-
+    // reporter就是一个可以报告给他状态的东西
     reporter.setStatus(split.toString());
 
     return new SequenceFileRecordReader(job, split);

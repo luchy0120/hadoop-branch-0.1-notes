@@ -51,12 +51,19 @@ class TaskInProgress {
     // task 需要处理的分片
     private FileSplit split = null;
     private String hints[][] = null;
-    // 该task 之前需要处理的前置task们
+    // 该task 之前需要处理的前置task们， 对reduce task 而言
     private TaskInProgress predecessors[] = null;
+    // 所处理的partition
     private int partition;
+    // jobtracker 是谁
     private JobTracker jobtracker;
+
     private String id;
+
+
+    // 所有taskId ，包括备份的task
     private String totalTaskIds[];
+
     private JobInProgress job;
 
     // Status of the TIP
@@ -100,6 +107,7 @@ class TaskInProgress {
         this.jobFile = jobFile;
         // 前置的task们，前置的都是map task
         this.predecessors = predecessors;
+        // 所在分片
         this.partition = partition;
         this.jobtracker = jobtracker;
         this.job = job;
@@ -115,7 +123,7 @@ class TaskInProgress {
         this.startTime = System.currentTimeMillis();
         // 给他个唯一id
         this.id = "tip_" + jobtracker.createUniqueId();
-        // 所有taskid, 5个
+        // 所有taskid, 生成5个
         this.totalTaskIds = new String[MAX_TASK_EXECS + MAX_TASK_FAILURES];
         for (int i = 0; i < totalTaskIds.length; i++) {
             if (isMapTask()) {
@@ -383,7 +391,7 @@ class TaskInProgress {
      * Return whether this TIP has an DFS cache-driven task 
      * to run at the given taskTracker.
      */
-    // 分片是否在这个tasktracker 上
+    // 分片是否有一部分Block在这个tasktracker 上
     boolean hasTaskWithCacheHit(String taskTracker, TaskTrackerStatus tts) {
         if (failed || isComplete() || recentTasks.size() > 0) {
             return false;
@@ -391,11 +399,15 @@ class TaskInProgress {
             try {
                 if (isMapTask()) {
                     if (hints == null) {
+                        // 本 map task 所需的 split  在哪些机器上有分布，一个split 可能分布在多台机器
                         hints = job.getFileCacheHints(getTIPId(), split.getFile(), split.getStart(), split.getLength());
                     }
                     if (hints != null) {
+                        // 第一维 Block
                         for (int i = 0; i < hints.length; i++) {
+                            // 第二维 host
                             for (int j = 0; j < hints[i].length; j++) {
+                                // 这些hosts 名单里包含有 taskTracker
                                 if (hints[i][j].equals(tts.getHost())) {
                                     return true;
                                 }
@@ -412,12 +424,13 @@ class TaskInProgress {
      * Return whether this TIP has a non-speculative task to run
      */
     boolean hasTask() {
-        // 有一个正常的需要去run的task吗？
+        // 有一个标准的需要去run的task吗？
         if (failed || isComplete() || recentTasks.size() > 0) {
             return false;
         } else {
             for (Iterator it = taskStatuses.values().iterator(); it.hasNext(); ) {
                 TaskStatus ts = (TaskStatus) it.next();
+                // 如果已经有备份任务在run 了，那么就不属于一个标准任务
                 if (ts.getRunState() == TaskStatus.RUNNING) {
                     return false;
                 }
@@ -431,11 +444,14 @@ class TaskInProgress {
      * far behind, and has been behind for a non-trivial amount of 
      * time.
      */
+    // 有备份的task
     boolean hasSpeculativeTask(double averageProgress) {
         //
         // REMIND - mjc - these constants should be examined
         // in more depth eventually...
-        //
+        // 是 map task 并且 开启了备份功能  并且最近的task 比较少 并且 当前的进度 比 平均的进度少
+        // 并且 task 已经启动了挺久了
+        // 也就是说启动了挺久 但是进度比较慢
         if (isMapTask() &&
             recentTasks.size() <= MAX_TASK_EXECS &&
             conf.getSpeculativeExecution() &&
@@ -449,26 +465,31 @@ class TaskInProgress {
     /**
      * Return a Task that can be sent to a TaskTracker for execution.
      */
+    // 从taskInprogress 生产出一个task
     public Task getTaskToRun(String taskTracker, TaskTrackerStatus tts, double avgProgress) {
         Task t = null;
         if (hasTaskWithCacheHit(taskTracker, tts) ||
             hasTask() || 
             hasSpeculativeTask(avgProgress)) {
 
+            // 拿出第一个taskId
             String taskid = (String) usableTaskIds.first();
             usableTaskIds.remove(taskid);
 
             if (isMapTask()) {
                 t = new MapTask(jobFile, taskid, split);
             } else {
+                // 如果是一个reduce 的 task，获得所有前置 task
                 String mapIdPredecessors[][] = new String[predecessors.length][];
                 for (int i = 0; i < mapIdPredecessors.length; i++) {
+                    // 获得 某个map task 的所有 taskId， 包括备份 的 task的id
                     mapIdPredecessors[i] = predecessors[i].getAllPossibleTaskIds();
                 }
                 t = new ReduceTask(jobFile, taskid, mapIdPredecessors, partition);
             }
             t.setConf(conf);
 
+            // 近期的task
             recentTasks.add(taskid);
 
             // Ask JobTracker to note that the task exists

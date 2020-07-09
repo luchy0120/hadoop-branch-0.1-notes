@@ -78,6 +78,7 @@ abstract class Task implements Writable, Configurable {
   // 每隔1000毫秒 报告progress
   public static final int PROGRESS_INTERVAL = 1000;
 
+  // the root of progress tree
   private transient Progress taskProgress = new Progress();
   private transient long nextProgressTime =
     System.currentTimeMillis() + PROGRESS_INTERVAL;

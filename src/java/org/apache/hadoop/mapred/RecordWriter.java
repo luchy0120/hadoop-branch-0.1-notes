@@ -31,7 +31,8 @@ public interface RecordWriter {
    * @param value the value to write
    *
    * @see Writable#write(DataOutput)
-   */      
+   */
+  // 写出一个key value pair
   void write(WritableComparable key, Writable value) throws IOException;
 
   /** Close this to future operations.*/ 

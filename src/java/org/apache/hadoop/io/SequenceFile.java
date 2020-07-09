@@ -262,6 +262,7 @@ public class SequenceFile {
       throws IOException {
       this.fs = fs;
       this.file = file;
+      // 打开文件
       this.in = fs.open(new File(file), bufferSize);
       seek(start);
       init();
@@ -530,6 +531,7 @@ public class SequenceFile {
     public int getMemory() { return memory; }
 
     /** Perform a file sort.*/
+    // 从原文件 排序， 到输出文件
     public void sort(String inFile, String outFile) throws IOException {
       if (fs.exists(new File(outFile))) {
         throw new IOException("already exists: " + outFile);
@@ -741,8 +743,9 @@ public class SequenceFile {
 
         this.queue =
           new MergeQueue(factor, last ? outFile : outFile+"."+pass, last);
-
+        // all1
         this.inName = outFile+"."+(pass-1);
+        // all2
         this.in = fs.open(new File(inName));
       }
 
@@ -755,6 +758,7 @@ public class SequenceFile {
 
       public int run() throws IOException {
         int segments = 0;
+        // 文件大小
         long end = fs.getLength(new File(inName));
 
         while (in.getPos() < end) {
@@ -762,11 +766,13 @@ public class SequenceFile {
           long totalLength = 0;
           long totalCount = 0;
           while (in.getPos() < end && queue.size() < factor) {
+            // 读一个length
             long length = in.readLong();
+            // 读一个count
             long count = in.readLong();
-
+            // 总长度
             totalLength += length;
-
+            // 总count
             totalCount+= count;
 
             Reader reader = new Reader(fs, inName, memory/(factor+1),

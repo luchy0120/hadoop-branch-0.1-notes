@@ -287,6 +287,7 @@ public class JobConf extends Configuration {
    * Should speculative execution be used for this job?
    * @return Defaults to true
    */
+  // 是否启用备份功能
   public boolean getSpeculativeExecution() { 
     return getBoolean("mapred.speculative.execution", true);
   }
@@ -323,6 +324,7 @@ public class JobConf extends Configuration {
   }
   
   public Object newInstance(Class theClass) {
+    // 根据构造函数创建一个新的实例
     Object result;
     try {
       result = theClass.newInstance();
@@ -344,11 +346,13 @@ public class JobConf extends Configuration {
    */
   private static String findContainingJar(Class my_class) {
     ClassLoader loader = my_class.getClassLoader();
+    // class 的名字
     String class_file = my_class.getName().replaceAll("\\.", "/") + ".class";
     try {
       for(Enumeration itr = loader.getResources(class_file);
           itr.hasMoreElements();) {
         URL url = (URL) itr.nextElement();
+        // jar:// 在所有资源里找jar包里的那个类
         if ("jar".equals(url.getProtocol())) {
           String toReturn = url.getPath();
           if (toReturn.startsWith("file:")) {

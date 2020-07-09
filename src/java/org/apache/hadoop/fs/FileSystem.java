@@ -141,6 +141,7 @@ public abstract class FileSystem extends Configured {
      *
      * The FileSystem will simply return an elt containing 'localhost'.
      */
+    // File在哪些机器上有
     public abstract String[][] getFileCacheHints(File f, long start, long len) throws IOException;
 
     /**

@@ -354,6 +354,7 @@ public class JobClient implements MRConstants {
       }
     }
 
+    // 加载 jobtracker 的特有配置
     static Configuration getConfiguration(String jobTrackerSpec)
     {
       Configuration conf = new Configuration();
@@ -392,16 +393,20 @@ public class JobClient implements MRConstants {
 
         for (int i = 0; i < argv.length; i++) {
             if ("-jt".equals(argv[i])) {
+                // jobtracker 的配置文件名
                 jobTrackerSpec = argv[i+1];
                 i++;
             } else if ("-submit".equals(argv[i])) {
+                // job 配置文件
                 submitJobFile = argv[i+1];
                 i++;
             } else if ("-status".equals(argv[i])) {
+                // jobid
                 jobid = argv[i+1];
                 getStatus = true;
                 i++;
             } else if ("-kill".equals(argv[i])) {
+                // jobid
                 jobid = argv[i+1];
                 killJob = true;
                 i++;
@@ -412,9 +417,11 @@ public class JobClient implements MRConstants {
         JobClient jc = new JobClient(getConfiguration(jobTrackerSpec));
         try {
             if (submitJobFile != null) {
+                // 提交job
                 RunningJob job = jc.submitJob(submitJobFile);
                 System.out.println("Created job " + job.getJobID());
             } else if (getStatus) {
+                // 获得 job信息
                 RunningJob job = jc.getJob(jobid);
                 if (job == null) {
                     System.out.println("Could not find job " + jobid);
@@ -423,6 +430,7 @@ public class JobClient implements MRConstants {
                     System.out.println(job);
                 }
             } else if (killJob) {
+                // 杀死job
                 RunningJob job = jc.getJob(jobid);
                 if (job == null) {
                     System.out.println("Could not find job " + jobid);

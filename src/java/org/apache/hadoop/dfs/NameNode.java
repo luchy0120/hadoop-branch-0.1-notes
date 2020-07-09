@@ -227,6 +227,7 @@ public class NameNode implements ClientProtocol, DatanodeProtocol, FSConstants {
     }
     /**
      */
+    // 传入某个分片的描述
     public String[][] getHints(String src, long start, long len) throws IOException {
         UTF8 hosts[][] = namesystem.getDatanodeHints(new UTF8(src), start, len);
         if (hosts == null) {
@@ -239,6 +240,7 @@ public class NameNode implements ClientProtocol, DatanodeProtocol, FSConstants {
                     results[i][j] = hosts[i][j].toString();
                 }
             }
+            // 获得这个文件的所有blocks的hosts
             return results;
         }
     }
@@ -314,8 +316,8 @@ public class NameNode implements ClientProtocol, DatanodeProtocol, FSConstants {
      */
     public long[] getStats() throws IOException {
         long results[] = new long[2];
-        results[0] = namesystem.totalCapacity();
-        results[1] = namesystem.totalCapacity() - namesystem.totalRemaining();
+        results[0] = namesystem.totalCapacity();  // 总容量
+        results[1] = namesystem.totalCapacity() - namesystem.totalRemaining();   // 使用容量
         return results;
     }
 

@@ -459,10 +459,13 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
          * Kick off the task execution
          */
         public synchronized void launchTask() throws IOException {
+            // 进度为 0
             this.progress = 0.0f;
+            // tasktracker 的状态
             this.runstate = TaskStatus.RUNNING;
+            // 诊断信息
             this.diagnosticInfo = new StringBuffer();
-            // task的runner
+            // task的runner， taskrunner
             this.runner = task.createRunner(TaskTracker.this);
             this.runner.start();
         }
@@ -586,7 +589,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol, MapOutpu
         }
 
         /**
-         * We no longer need anything from this task.  Either the 
+         * We no longer need anything from this task.  Either the
          * controlling job is all done and the files have been copied
          * away, or the task failed and we don't need the remains.
          */

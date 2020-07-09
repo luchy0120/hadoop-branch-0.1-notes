@@ -22,7 +22,8 @@ import java.io.*;
 import org.apache.hadoop.io.*;
 
 /** The location of a map output file, as passed to a reduce task via the
- * {@link InterTrackerProtocol}. */ 
+ * {@link InterTrackerProtocol}. */
+// map任务发生在哪里
 class MapOutputLocation implements Writable {
 
     static {                                      // register a ctor
@@ -33,8 +34,11 @@ class MapOutputLocation implements Writable {
          });
     }
 
+    // map task的id
   private String mapTaskId;
+    // map task 所在的host
   private String host;
+    // map 所在的port
   private int port;
 
   /** RPC constructor **/

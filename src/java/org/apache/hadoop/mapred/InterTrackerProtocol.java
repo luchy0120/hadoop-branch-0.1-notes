@@ -53,6 +53,7 @@ interface InterTrackerProtocol {
    * @param mapTasksNeeded an array of UTF8 naming map task ids whose output is needed.
    * @return an array of MapOutputLocation
    */
+  // reduce task所在的tasktracker 询问job tracker， mapoutlocation在哪里
   // 找map 输出文件在那个机器上
   MapOutputLocation[] locateMapOutputs(String taskId, String[][] mapTasksNeeded);
 

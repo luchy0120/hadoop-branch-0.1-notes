@@ -37,8 +37,11 @@ class MapOutputFile implements Writable, Configurable {
          });
     }
 
+    // map的id
   private String mapTaskId;
+    // reduce 的id
   private String reduceTaskId;
+   // 哪个分片
   private int partition;
   
   /** Permits reporting of file copy progress. */
@@ -57,6 +60,7 @@ class MapOutputFile implements Writable, Configurable {
    * @param mapTaskId a map task id
    * @param partition a reduce partition
    */
+  //  13214324/part-0.out
   public File getOutputFile(String mapTaskId, int partition)
     throws IOException {
     return this.jobConf.getLocalFile(mapTaskId, "part-"+partition+".out");
@@ -66,6 +70,7 @@ class MapOutputFile implements Writable, Configurable {
    * @param mapTaskId a map task id
    * @param reduceTaskId a reduce task id
    */
+  // 43423432/32142.out
   public File getInputFile(String mapTaskId, String reduceTaskId)
     throws IOException {
     return this.jobConf.getLocalFile(reduceTaskId, mapTaskId+".out");
@@ -84,6 +89,7 @@ class MapOutputFile implements Writable, Configurable {
 
   /** Removes all of the files related to a task. */
   public void removeAll(String taskId) throws IOException {
+    // 删除 taskId 下的文件
     this.jobConf.deleteLocalFiles(taskId);
   }
 

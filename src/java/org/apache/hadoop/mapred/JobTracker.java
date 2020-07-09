@@ -344,32 +344,38 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
     JobTracker(Configuration conf) throws IOException {
         //
         // Grab some static constants
-        // 一个tracker 最多执行多少task
+        // 一个tracker 最多同时执行多少task
         maxCurrentTasks = conf.getInt("mapred.tasktracker.tasks.maximum", 2);
         // job 隔多久被retire
         RETIRE_JOB_INTERVAL = conf.getLong("mapred.jobtracker.retirejob.interval", 24 * 60 * 60 * 1000);
-
+        // 多久会check一次 job是否被retire
         RETIRE_JOB_CHECK_INTERVAL = conf.getLong("mapred.jobtracker.retirejob.check", 60 * 1000);
+
         TASK_ALLOC_EPSILON = conf.getFloat("mapred.jobtracker.taskalloc.loadbalance.epsilon", 0.2f);
         PAD_FRACTION = conf.getFloat("mapred.jobtracker.taskalloc.capacitypad", 0.1f);
+
+        // 最少slots
         MIN_SLOTS_FOR_PADDING = 3 * maxCurrentTasks;
 
         // This is a directory of temporary submission files.  We delete it
         // on startup, and can delete any files that we're done with
         this.conf = conf;
         JobConf jobConf = new JobConf(conf);
-        // 一个临时文件夹
+        // 一个临时文件夹 // tmp/mapred
         this.systemDir = jobConf.getSystemDir();
+        // 获得hdfs
         this.fs = FileSystem.get(conf);
-        // 删除sysdir
+        // 在hdfs上删除sysdir
         FileUtil.fullyDelete(fs, systemDir);
         // 新建sysdir
         fs.mkdirs(systemDir);
 
         // Same with 'localDir' except it's always on the local disk.
+        // 删除本地文件夹 jobtracker
         jobConf.deleteLocalFiles(SUBDIR);
 
         // Set ports, start RPC servers, etc.
+        // jobtracker hostname 端口
         InetSocketAddress addr = getAddress(conf);
 
         // 本地机器名
@@ -378,6 +384,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
         this.port = addr.getPort();
         // 启动 server，传入this，作为被调用的instance，10个handler线程来处理
         this.interTrackerServer = RPC.getServer(this, addr.getPort(), 10, false, conf);
+        //
         this.interTrackerServer.start();
         // 打印system properties
 	Properties p = System.getProperties();
@@ -409,7 +416,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
       if (colon < 0) {
         throw new RuntimeException("Bad mapred.job.tracker: "+jobTrackerStr);
       }
-      // tracker的名字
+      // tracker的名字  localhost
       String jobTrackerName = jobTrackerStr.substring(0, colon);
       // tracker的端口
       int jobTrackerPort = Integer.parseInt(jobTrackerStr.substring(colon+1));
@@ -656,12 +663,12 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
           tts = (TaskTrackerStatus) taskTrackers.get(taskTracker);
         }
         if (numTaskTrackers > 0) {
-            // 平均每个 task tracker 处理多少map
+            // 平均每个 task tracker 分到多少map
           avgMaps = totalMaps / numTaskTrackers;
-           // 平均每隔task tracker 处理多少 reduce
+           // 平均每个 task tracker 分到多少 reduce
           avgReduces = totalReduces / numTaskTrackers;
         }
-        // 总共能跑多少task
+        // 总共能同时跑多少task
         int totalCapacity = numTaskTrackers * maxCurrentTasks;
         //
         // Get map + reduce counts for the current tracker.
@@ -950,7 +957,7 @@ public class JobTracker implements MRConstants, InterTrackerProtocol, JobSubmiss
             Vector incompleteReduceTasks = job.reportTasksInProgress(false, false);
             for (Iterator it = incompleteReduceTasks.iterator(); it.hasNext(); ) {
                 TaskInProgress tip = (TaskInProgress) it.next();
-                // task in progess的瞬时静态report
+                // task in progress的瞬时静态report
                 reports.add(tip.generateSingleReport());
             }
             return (TaskReport[]) reports.toArray(new TaskReport[reports.size()]);

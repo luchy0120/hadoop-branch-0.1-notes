@@ -172,6 +172,7 @@ class JobInProgress {
         String results[][] = (String[][]) cachedHints.get(tipID);
         if (tipID == null) {
             FileSystem fs = FileSystem.get(conf);
+            // 文件在哪些 机器上
             results = fs.getFileCacheHints(f, start, len);
             cachedHints.put(tipID, results);
         }
@@ -303,7 +304,7 @@ class JobInProgress {
         // the TaskTracker checking in.  That means the block
         // doesn't have to be transmitted from another node.
         //
-        // 看看 那个task tracker 上有没有 一个split ，有就记录这个map的index在cache target里
+        // 看看 那个task tracker 上有没有 这个split 的部分数据 ，有就记录这个map的index在cache target里，最后将这个map分给它
         for (int i = 0; i < maps.length; i++) {
             if (maps[i].hasTaskWithCacheHit(taskTracker, tts)) {
                 if (cacheTarget < 0) {

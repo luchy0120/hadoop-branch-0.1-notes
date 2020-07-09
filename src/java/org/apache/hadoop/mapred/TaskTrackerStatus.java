@@ -139,14 +139,20 @@ class TaskTrackerStatus implements Writable {
     /**
      */     
     public void readFields(DataInput in) throws IOException {
+        // tracker 名字
         this.trackerName = UTF8.readString(in);
+        // tracker 的host
         this.host = UTF8.readString(in);
+        // tracker 的port
         this.port = in.readInt();
 
+        // 记录所有task的状态
         taskReports = new Vector();
         taskReports.clear();
 
+        // tracker 的task 数量
         int numTasks = in.readInt();
+
         for (int i = 0; i < numTasks; i++) {
             TaskStatus tmp = new TaskStatus();
             tmp.readFields(in);

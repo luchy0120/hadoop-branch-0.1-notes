@@ -549,6 +549,7 @@ class FSNamesystem implements FSConstants {
 
         int startBlock = -1;
         int endBlock = -1;
+        // 拿到文件的所有blocks
         Block blocks[] = dir.getFile(src);
 
         if (blocks == null) {                     // no blocks
@@ -559,11 +560,16 @@ class FSNamesystem implements FSConstants {
         // First, figure out where the range falls in
         // the blocklist.
         //
+        // 开始位置
         long startpos = start;
+        // 结束位置
         long endpos = start + len;
+        // 遍历所有blocks
         for (int i = 0; i < blocks.length; i++) {
             if (startpos >= 0) {
+                // 减掉这一块的大小
                 startpos -= blocks[i].getNumBytes();
+
                 if (startpos <= 0) {
                     startBlock = i;
                 }
@@ -584,16 +590,20 @@ class FSNamesystem implements FSConstants {
         if (startBlock < 0 || endBlock < 0) {
             return new UTF8[0][];
         } else {
+            // 一共有多少块，就有几个hosts
             UTF8 hosts[][] = new UTF8[(endBlock - startBlock) + 1][];
             for (int i = startBlock; i <= endBlock; i++) {
                 TreeSet containingNodes = (TreeSet) blocksMap.get(blocks[i]);
                 Vector v = new Vector();
+                // 把包含该Block的所有hosts 添加到v里
                 for (Iterator it = containingNodes.iterator(); it.hasNext(); ) {
                     DatanodeInfo cur = (DatanodeInfo) it.next();
                     v.add(cur.getHost());
                 }
+
                 hosts[i-startBlock] = (UTF8[]) v.toArray(new UTF8[v.size()]);
             }
+            // 二维数组，第一维是Block，第二维是hosts
             return hosts;
         }
     }
